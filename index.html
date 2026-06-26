@@ -341,7 +341,7 @@ td.num { text-align: right; }
     </div>
 
     <div class="ss-wrap desktop-only" id="ss-thm-wrap">
-      <input class="ss-input" id="ss-thm-input" placeholder="Thematic" readonly>
+      <input class="ss-input" id="ss-thm-input" placeholder="All Thematic" readonly>
       <div class="ss-dropdown" id="ss-thm-dd">
         <input class="ss-search" id="ss-thm-search" placeholder="Search…">
         <div class="ss-list" id="ss-thm-list"></div>
@@ -387,7 +387,7 @@ td.num { text-align: right; }
       </div>
     </div>
     <div class="ss-wrap" style="width:100%">
-      <input class="ss-input" id="ss-mthm-input" placeholder="Thematic" readonly>
+      <input class="ss-input" id="ss-mthm-input" placeholder="All Thematic" readonly>
       <div class="ss-dropdown" id="ss-mthm-dd">
         <input class="ss-search" id="ss-mthm-search" placeholder="Search…">
         <div class="ss-list" id="ss-mthm-list"></div>
@@ -598,7 +598,7 @@ const THEMATIC_NORM = {};
 for (const [k, v] of Object.entries(THEMATIC_MAP_RAW)) {
   THEMATIC_NORM[k.replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase()] = v;
 }
-function getThematic(code) {
+function getAll Thematic(code) {
   if (!code) return null;
   const tokens = code.split('/');
   for (const token of tokens) {
@@ -860,11 +860,11 @@ function initSS(funds) {
   ssHandles.cat  = makeSS('ss-cat-input',  'ss-cat-dd',  'ss-cat-search',  'ss-cat-list',  cats, onCatChange, true);
   ssHandles.cls  = makeSS('ss-cls-input',  'ss-cls-dd',  'ss-cls-search',  'ss-cls-list',  getClasses(new Set()), onClsChange, false);
   ssHandles.hl   = makeSS('ss-hl-input',   'ss-hl-dd',   'ss-hl-search',   'ss-hl-list',   hlOptions,  onHLChange,  'All Highlights');
-  ssHandles.thm  = makeSS('ss-thm-input',  'ss-thm-dd',  'ss-thm-search',  'ss-thm-list',  thmOptions, onThmChange, 'Thematic');
+  ssHandles.thm  = makeSS('ss-thm-input',  'ss-thm-dd',  'ss-thm-search',  'ss-thm-list',  thmOptions, onThmChange, 'All Thematic');
   ssHandles.mcat = makeSS('ss-mcat-input', 'ss-mcat-dd', 'ss-mcat-search', 'ss-mcat-list', cats, onCatChange, true);
   ssHandles.mcls = makeSS('ss-mcls-input', 'ss-mcls-dd', 'ss-mcls-search', 'ss-mcls-list', getClasses(new Set()), onClsChange, false);
   ssHandles.mhl  = makeSS('ss-mhl-input',  'ss-mhl-dd',  'ss-mhl-search',  'ss-mhl-list',  hlOptions,  onHLChange,  'All Highlights');
-  ssHandles.mthm = makeSS('ss-mthm-input', 'ss-mthm-dd', 'ss-mthm-search', 'ss-mthm-list', thmOptions, onThmChange, 'Thematic');
+  ssHandles.mthm = makeSS('ss-mthm-input', 'ss-mthm-dd', 'ss-mthm-search', 'ss-mthm-list', thmOptions, onThmChange, 'All Thematic');
 
   if (!listenersOk) {
     document.getElementById('search').addEventListener('input', render);
@@ -1073,7 +1073,7 @@ async function load() {
       f.mutual_fund && /^[A-Za-z0-9@\-\.\(\)\/\s,+]+$/.test(f.mutual_fund.trim())
     ).map(f => ({
       ...f,
-      thematic:   getThematic(f.mutual_fund),
+      thematic:   getAll Thematic(f.mutual_fund),
       recommend:  checkHL(f.mutual_fund, RECOMMEND_CODES),
       monthly:    checkHL(f.mutual_fund, MONTHLY_CODES)
     }));
