@@ -1,0 +1,10 @@
+# Monthly Pick funds — one fund code per line
+# Lines starting with # are ignored (comments). Blank lines are ignored too.
+# To add a fund: just type its code on a new line.
+# To remove a fund: delete its line (or put a # in front of it).
+# After editing, upload this file to GitHub (same folder as index.html).
+
+ES-LOVE
+ASP-JHC
+LHCYBER-A
+A-AIRR
