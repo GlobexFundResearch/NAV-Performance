@@ -17,6 +17,20 @@
 
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; -webkit-tap-highlight-color: transparent; }
 
+/* ── Maintenance overlay ── */
+#maintenance-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(15,45,94,.55); backdrop-filter: blur(2px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+.maint-card {
+  background: #fff; border-radius: 16px; padding: 36px 32px; max-width: 380px; width: 100%;
+  text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.25);
+}
+.maint-icon { font-size: 42px; margin-bottom: 14px; }
+.maint-title { font-size: 16px; font-weight: 700; color: var(--primary); margin-bottom: 8px; line-height: 1.5; }
+.maint-sub { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
 /* ── Header ── */
 header {
   position: sticky; top: 0; z-index: 200;
@@ -293,6 +307,15 @@ td.num { text-align: right; }
 </style>
 </head>
 <body>
+
+<!-- Maintenance overlay (shown automatically when nav data can't be loaded, e.g. mid-upload) -->
+<div id="maintenance-overlay" style="display:none">
+  <div class="maint-card">
+    <div class="maint-icon">🛠️</div>
+    <div class="maint-title">ขออภัย กำลังอยู่ระหว่างการ Upload ข้อมูล</div>
+    <div class="maint-sub">โดยเราจะกลับมาในเร็ว ๆ นี้</div>
+  </div>
+</div>
 
 <!-- Header -->
 <header>
@@ -1245,10 +1268,7 @@ async function load() {
     render();
 
   } catch (e) {
-    const msg = `<div style="text-align:center;padding:40px;color:var(--muted)">
-      ⚠️ Cannot load nav_data.json<br><small>${esc(e.message)}</small></div>`;
-    document.getElementById('tbl-body').innerHTML = `<tr><td colspan="11">${msg}</td></tr>`;
-    document.getElementById('card-grid').innerHTML = msg;
+    document.getElementById('maintenance-overlay').style.display = 'flex';
   }
 }
 
