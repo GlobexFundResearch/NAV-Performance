@@ -1255,6 +1255,8 @@ function clearFilters() {
   document.getElementById('search').value = '';
   Object.values(ssHandles).forEach(h => h && h.reset());
   document.querySelectorAll('.mom-btn').forEach(b => b.className = 'mom-btn');
+  sortCol = null; sortDir = 1;
+  document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
   render();
 }
 
