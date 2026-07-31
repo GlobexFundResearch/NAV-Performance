@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NAV Report</title>
+<title>NAV Performance Report</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -228,6 +228,7 @@ table {
 }
 .c-num  { width: 32px; }
 .c-fund { width: 180px; }
+.c-type { width: 90px; }
 .c-cls  { width: 160px; }
 .c-date { width: 82px; }
 .c-nav  { width: 88px; }
@@ -255,6 +256,9 @@ td.num { text-align: right; }
 .fund-code { font-weight: 700; color: var(--primary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: normal; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .fund-name { font-size: 10px; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: normal; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .cls-tag { display: block; background: var(--accent); color: var(--pri-light); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.type-tag { display: inline-block; border-radius: 10px; padding: 2px 8px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.type-mf  { background: #e0e7ff; color: #4338ca; }
+.type-etf { background: #dcfce7; color: #15803d; }
 .fund-date { color: var(--muted); font-size: 10px; margin-top: 2px; }
 .thm-badge  { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; white-space: nowrap; margin-top: 2px; }
 .hl-badge   { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 9px; font-weight: 700; white-space: normal; margin-top: 2px; margin-right: 3px; }
@@ -323,11 +327,11 @@ td.num { text-align: right; }
 <!-- Header -->
 <header>
   <div>
-    <div class="h-title">NAV Report <span style="font-size:11px;font-weight:400;opacity:.75">(Internal Use Only)</span></div>
+    <div class="h-title">NAV Performance Report <span style="font-size:11px;font-weight:400;opacity:.75">(Internal Use Only)</span></div>
     <div class="h-sub">LSEG Refinitiv Data Platform</div>
   </div>
   <div class="h-right">
-    <div style="font-size:12px;font-weight:600">Version 1.0 Beta</div>
+    <div style="font-size:12px;font-weight:600">Version 2.0 Beta</div>
     <div style="font-size:10px;opacity:.7;margin-top:2px"><span id="total-funds">—</span> funds · <span id="upd-date">—</span></div>
   </div>
 </header>
@@ -342,6 +346,14 @@ td.num { text-align: right; }
     </div>
 
     <!-- Desktop filters -->
+    <div class="ss-wrap desktop-only" id="ss-type-wrap">
+      <input class="ss-input" id="ss-type-input" placeholder="All Types" readonly>
+      <div class="ss-dropdown" id="ss-type-dd">
+        <input class="ss-search" id="ss-type-search" placeholder="Search…">
+        <div class="ss-list" id="ss-type-list"></div>
+      </div>
+    </div>
+
     <div class="ss-wrap desktop-only" id="ss-cls-wrap">
       <input class="ss-input" id="ss-cls-input" placeholder="All Classifications" readonly>
       <div class="ss-dropdown" id="ss-cls-dd">
@@ -393,6 +405,13 @@ td.num { text-align: right; }
   <!-- Mobile drawer -->
   <div class="filter-drawer" id="filter-drawer">
     <div class="ss-wrap" style="width:100%">
+      <input class="ss-input" id="ss-mtype-input" placeholder="All Types" readonly>
+      <div class="ss-dropdown" id="ss-mtype-dd">
+        <input class="ss-search" id="ss-mtype-search" placeholder="Search…">
+        <div class="ss-list" id="ss-mtype-list"></div>
+      </div>
+    </div>
+    <div class="ss-wrap" style="width:100%">
       <input class="ss-input" id="ss-mcls-input" placeholder="All Classifications" readonly>
       <div class="ss-dropdown" id="ss-mcls-dd">
         <input class="ss-search" id="ss-mcls-search" placeholder="Search…">
@@ -439,7 +458,7 @@ td.num { text-align: right; }
 <div class="table-wrap">
   <table id="main-table">
     <colgroup>
-      <col class="c-num"><col class="c-fund"><col class="c-cls">
+      <col class="c-num"><col class="c-fund"><col class="c-type"><col class="c-cls">
       <col class="c-nav"><col class="c-pct"><col class="c-pct"><col class="c-pct">
       <col class="c-pct"><col class="c-pct"><col class="c-mom">
     </colgroup>
@@ -447,6 +466,7 @@ td.num { text-align: right; }
       <tr>
         <th>#</th>
         <th class="sortable" data-sort="fund" onclick="setSort('fund')">Fund Code<span class="sort-icon"></span></th>
+        <th>Type</th>
         <th>Classification</th>
         <th class="num">NAV / Price</th>
         <th class="num sortable" data-sort="pct1d" onclick="setSort('pct1d')">%1D<span class="sort-icon"></span></th>
@@ -458,7 +478,7 @@ td.num { text-align: right; }
       </tr>
     </thead>
     <tbody id="tbl-body">
-      <tr class="state-row"><td colspan="10"><div class="spinner"></div><div>Loading…</div></td></tr>
+      <tr class="state-row"><td colspan="11"><div class="spinner"></div><div>Loading…</div></td></tr>
     </tbody>
   </table>
 </div>
@@ -810,7 +830,7 @@ function hideMomTip() {
 }
 
 let allFunds = [], filtered = [], listenersOk = false;
-let selCls = new Set(), selMom = new Set(), selThm = new Set(), selHL = new Set(), selFH = new Set();
+let selCls = new Set(), selMom = new Set(), selThm = new Set(), selHL = new Set(), selFH = new Set(), selType = new Set();
 let sortCol = null, sortDir = 1, prioritySorted = false;
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -878,6 +898,11 @@ function fmtMom(m) {
   const key = momKey(m);
   return `<span class="mom-badge ${momCls(m)}" data-mom="${key}">${esc(m)}</span>`;
 }
+function fmtType(cat) {
+  if (!cat) return '<span class="na">—</span>';
+  const cls = cat === 'ETF' ? 'type-etf' : 'type-mf';
+  return `<span class="type-tag ${cls}">${esc(cat)}</span>`;
+}
 
 // ── Searchable Select ─────────────────────────────────────────
 function buildSS(inputId, ddId, searchId, listId, options, value, onSelect) {
@@ -941,11 +966,13 @@ let ssHandles = {};
 
 function initSS(funds) {
   const classes = [...new Set(funds.map(f => f.classification).filter(Boolean))].sort();
+  const types = [...new Set(funds.map(f => f.category).filter(Boolean))].sort();
 
   function onClsChange(clsSet) { selCls = clsSet; render(); }
   function onThmChange(thmSet) { selThm = thmSet; render(); }
   function onHLChange(hlSet) { selHL = hlSet; render(); }
   function onFHChange(fhSet) { selFH = fhSet; render(); }
+  function onTypeChange(typeSet) { selType = typeSet; render(); }
 
   const hlOptions = ['👍 Recommended', '⭐ Monthly Pick'];
   const fhOptions = [
@@ -1021,10 +1048,12 @@ function initSS(funds) {
     };
   }
 
+  ssHandles.type = makeSS('ss-type-input', 'ss-type-dd', 'ss-type-search', 'ss-type-list', types, onTypeChange, 'All Types');
   ssHandles.cls  = makeSS('ss-cls-input',  'ss-cls-dd',  'ss-cls-search',  'ss-cls-list',  classes, onClsChange, 'All Classifications');
   ssHandles.hl   = makeSS('ss-hl-input',   'ss-hl-dd',   'ss-hl-search',   'ss-hl-list',   hlOptions,  onHLChange,  'All Highlights');
   ssHandles.thm  = makeSS('ss-thm-input',  'ss-thm-dd',  'ss-thm-search',  'ss-thm-list',  thmOptions, onThmChange, 'All Thematic');
   ssHandles.fh   = makeSS('ss-fh-input',   'ss-fh-dd',   'ss-fh-search',   'ss-fh-list',   fhOptions,  onFHChange,  'All Fund Holiday');
+  ssHandles.mtype = makeSS('ss-mtype-input', 'ss-mtype-dd', 'ss-mtype-search', 'ss-mtype-list', types, onTypeChange, 'All Types');
   ssHandles.mcls = makeSS('ss-mcls-input', 'ss-mcls-dd', 'ss-mcls-search', 'ss-mcls-list', classes, onClsChange, 'All Classifications');
   ssHandles.mhl  = makeSS('ss-mhl-input',  'ss-mhl-dd',  'ss-mhl-search',  'ss-mhl-list',  hlOptions,  onHLChange,  'All Highlights');
   ssHandles.mthm = makeSS('ss-mthm-input', 'ss-mthm-dd', 'ss-mthm-search', 'ss-mthm-list', thmOptions, onThmChange, 'All Thematic');
@@ -1098,11 +1127,12 @@ function setSort(col) {
 function render() {
   const q = document.getElementById('search').value.toLowerCase().trim();
 
-  const hasFilter = selCls.size || selMom.size || selThm.size || selHL.size || selFH.size || document.getElementById('search').value.trim();
+  const hasFilter = selCls.size || selMom.size || selThm.size || selHL.size || selFH.size || selType.size || document.getElementById('search').value.trim();
   const btn = document.getElementById('clear-btn');
   if (btn) btn.style.display = hasFilter ? '' : 'none';
 
   filtered = allFunds.filter(f => {
+    if (selType.size > 0 && !selType.has(f.category)) return false;
     if (selCls.size > 0 && !selCls.has(f.classification)) return false;
     if (selMom.size > 0 && !selMom.has(momKey(f.momentum))) return false;
     if (selThm.size > 0 && !selThm.has(f.thematic)) return false;
@@ -1141,12 +1171,13 @@ function render() {
       }
       return av < bv ? -sortDir : av > bv ? sortDir : 0;
     });
-  } else if (filtered.some(f => f.recommend || f.monthly)) {
+  } else {
     prioritySorted = true;
     filtered.sort((a, b) => {
       const pa = a.recommend ? 2 : a.monthly ? 1 : 0;
       const pb = b.recommend ? 2 : b.monthly ? 1 : 0;
-      return pb - pa;
+      if (pa !== pb) return pb - pa;
+      return (a.mutual_fund || '').toLowerCase().localeCompare((b.mutual_fund || '').toLowerCase());
     });
   }
 
@@ -1162,7 +1193,7 @@ function renderTable() {
   filtered.forEach(f => {
     if (!sortCol && !prioritySorted && f.category !== lastCat) {
       lastCat = f.category;
-      html += `<tr class="group-hd"><td colspan="10">▸ ${esc(f.category)}</td></tr>`;
+      html += `<tr class="group-hd"><td colspan="11">▸ ${esc(f.category)}</td></tr>`;
     }
     idx++;
     const fn = f.fund_name ? `<div class="fund-name" title="${esc(f.fund_name)}">${esc(f.fund_name)}</div>` : '';
@@ -1172,6 +1203,7 @@ function renderTable() {
     html += `<tr>
       <td style="color:#bbb;font-size:11px">${idx}</td>
       <td><div class="fund-code">${esc(f.mutual_fund)}</div>${dateLine}${hlLine}${thmLine}${fn}</td>
+      <td>${fmtType(f.category)}</td>
       <td><span class="cls-tag" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span></td>
       <td class="num">${fmtNav(f.nav, f.nav_label)}</td>
       <td class="num">${fmtPct(f.pct1d,false)}</td>
@@ -1198,7 +1230,7 @@ function renderCards() {
     const hlHtml = (f.recommend || f.monthly || f.holiday) ? `<div style="margin-top:4px">${f.recommend ? '<span class="hl-badge rec-badge">👍 Recommended</span>' : ''}${f.monthly ? '<span class="hl-badge mon-badge">⭐ Monthly Pick</span>' : ''}${fmtHoliday(f.holiday)}</div>` : '';
     html += `<div class="card">
       <div class="card-head">
-        <div><div class="card-name">${esc(f.mutual_fund)}</div>${fn}${hlHtml}${thmHtml}</div>
+        <div><div class="card-name">${esc(f.mutual_fund)}</div><div style="margin-top:3px">${fmtType(f.category)}</div>${fn}${hlHtml}${thmHtml}</div>
         <span class="card-cls" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span>
       </div>
       <div class="card-nav-row">
@@ -1219,7 +1251,7 @@ function renderCards() {
 }
 
 function clearFilters() {
-  selCls.clear(); selMom.clear(); selThm.clear(); selHL.clear(); selFH.clear();
+  selCls.clear(); selMom.clear(); selThm.clear(); selHL.clear(); selFH.clear(); selType.clear();
   document.getElementById('search').value = '';
   Object.values(ssHandles).forEach(h => h && h.reset());
   document.querySelectorAll('.mom-btn').forEach(b => b.className = 'mom-btn');
