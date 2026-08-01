@@ -239,10 +239,11 @@ table {
 .c-pct  { width: 62px; }
 .c-mom  { width: 100px; }
 
+thead { position: sticky; top: 0; z-index: 150; }
 thead tr { background: var(--primary); color: #fff; }
 thead th {
   padding: 9px 8px; text-align: center; font-size: 11px; font-weight: 700; white-space: nowrap;
-  position: sticky; top: 0; z-index: 150; background: var(--primary);
+  background: var(--primary);
 }
 thead th.num { text-align: center; }
 th.sortable { cursor: pointer; user-select: none; }
