@@ -42,7 +42,9 @@ header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 16px; box-shadow: 0 2px 8px rgba(0,0,0,.3);
 }
+.h-toprow { display: flex; align-items: baseline; gap: 6px; }
 .h-title { font-size: 16px; font-weight: 700; }
+.h-tag   { font-size: 11px; font-weight: 400; opacity: .75; white-space: nowrap; }
 .h-sub   { font-size: 10px; opacity: .7; margin-top: 1px; }
 .h-right { font-size: 11px; opacity: .8; text-align: right; }
 
@@ -220,11 +222,13 @@ header {
 }
 
 /* ── Desktop table ── */
-.table-wrap { padding: 12px 16px 40px; overflow-x: auto; }
+.table-wrap {
+  margin: 12px 16px 40px; overflow-x: auto; overflow-y: auto; max-height: calc(100vh - var(--sticky-offset, 96px));
+  background: var(--surface); border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.08);
+}
 table {
-  width: 100%; table-layout: fixed; border-collapse: collapse;
-  background: var(--surface); border-radius: 10px; overflow: hidden;
-  box-shadow: 0 1px 6px rgba(0,0,0,.08); min-width: 900px;
+  width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
+  min-width: 900px;
 }
 .c-num  { width: 32px; }
 .c-fund { width: 180px; }
@@ -236,7 +240,10 @@ table {
 .c-mom  { width: 100px; }
 
 thead tr { background: var(--primary); color: #fff; }
-thead th { padding: 9px 8px; text-align: center; font-size: 11px; font-weight: 700; white-space: nowrap; }
+thead th {
+  padding: 9px 8px; text-align: center; font-size: 11px; font-weight: 700; white-space: nowrap;
+  position: sticky; top: 0; z-index: 150; background: var(--primary);
+}
 thead th.num { text-align: center; }
 th.sortable { cursor: pointer; user-select: none; }
 th.sortable:hover { background: rgba(255,255,255,.12); }
@@ -245,10 +252,11 @@ th.sort-asc .sort-icon::after  { content: ' ▲'; opacity: 1; }
 th.sort-desc .sort-icon::after { content: ' ▼'; opacity: 1; }
 th.sort-asc .sort-icon, th.sort-desc .sort-icon { opacity: 1; }
 
-tbody tr { border-bottom: 1px solid #e8edf4; transition: background .12s; }
+tbody tr { transition: background .12s; }
 tbody tr:hover { background: #f0f5ff; }
-tr.group-hd { background: #e8f0fe; border-bottom: 2px solid #b8ccf0; }
-tr.group-hd td { font-weight: 700; font-size: 11px; color: var(--primary); padding: 6px 10px; }
+tbody td { border-bottom: 1px solid #e8edf4; }
+tr.group-hd { background: #e8f0fe; }
+tr.group-hd td { font-weight: 700; font-size: 11px; color: var(--primary); padding: 6px 10px; border-bottom: 2px solid #b8ccf0; }
 
 td { padding: 6px 8px; vertical-align: middle; overflow: hidden; }
 td.num { text-align: right; }
@@ -305,7 +313,12 @@ td.num { text-align: right; }
 
 /* ── Responsive ── */
 @media (max-width: 720px) {
-  .h-title { font-size: 14px; }
+  :root { --header-h: 76px; }
+  header { align-items: center; padding: 8px 16px; }
+  .h-toprow { flex-direction: column; align-items: flex-start; gap: 0; }
+  .h-title { font-size: 15px; }
+  .h-tag { font-size: 11px; margin-top: 1px; }
+  .h-sub { margin-top: 3px; }
   .table-wrap { display: none; }
   .card-grid { display: flex; }
   .filter-btn { display: block; }
@@ -327,8 +340,11 @@ td.num { text-align: right; }
 <!-- Header -->
 <header>
   <div>
-    <div class="h-title">NAV Performance Report <span style="font-size:11px;font-weight:400;opacity:.75">(Internal Use Only)</span></div>
-    <div class="h-sub">LSEG Refinitiv Data Platform</div>
+    <div class="h-toprow">
+      <span class="h-title">NAV Performance Report</span>
+      <span class="h-tag">(Internal Use Only)</span>
+    </div>
+    <div class="h-sub">Source: LSEG Refinitiv Data Platform</div>
   </div>
   <div class="h-right">
     <div style="font-size:12px;font-weight:600">Version 2.0 Beta</div>
@@ -1310,6 +1326,18 @@ async function load() {
 }
 
 load();
+
+// ── Sticky table header offset (header + filterbar height can vary by content/font) ──
+function updateStickyOffset() {
+  const header = document.querySelector('header');
+  const filterbar = document.querySelector('.filterbar');
+  if (!header || !filterbar) return;
+  document.documentElement.style.setProperty('--sticky-offset', (header.offsetHeight + filterbar.offsetHeight) + 'px');
+}
+updateStickyOffset();
+window.addEventListener('resize', updateStickyOffset);
+window.addEventListener('load', updateStickyOffset);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateStickyOffset);
 </script>
 <script src="nav_data.js"></script>
 </body>
