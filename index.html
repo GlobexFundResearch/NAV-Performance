@@ -290,6 +290,8 @@ td.num { text-align: right; }
 .card-grid { display: none; padding: 10px; gap: 8px; flex-direction: column; }
 .card { background: var(--surface); border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); border: 1px solid var(--border); }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; gap: 6px; }
+.card-head-left { min-width: 0; }
+.card-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .card-name { font-weight: 700; font-size: 14px; color: var(--primary); line-height: 1.3; }
 .card-fn   { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .card-cls  { background: var(--accent); color: var(--pri-light); border-radius: 8px; padding: 2px 8px; font-size: 10px; font-weight: 700; white-space: nowrap; flex-shrink: 0; max-width: 130px; overflow: hidden; text-overflow: ellipsis; }
@@ -349,6 +351,7 @@ td.num { text-align: right; }
   </div>
   <div class="h-right">
     <div style="font-size:12px;font-weight:600">Version 2.0 Beta</div>
+    <div style="font-size:10px;opacity:.7;margin-top:2px">Created by GBS Fund Research</div>
     <div style="font-size:10px;opacity:.7;margin-top:2px"><span id="total-funds">—</span> funds · <span id="upd-date">—</span></div>
   </div>
 </header>
@@ -387,13 +390,6 @@ td.num { text-align: right; }
       </div>
     </div>
 
-    <div class="ss-wrap desktop-only" id="ss-thm-wrap">
-      <input class="ss-input" id="ss-thm-input" placeholder="All Thematic" readonly>
-      <div class="ss-dropdown" id="ss-thm-dd">
-        <input class="ss-search" id="ss-thm-search" placeholder="Search…">
-        <div class="ss-list" id="ss-thm-list"></div>
-      </div>
-    </div>
 
     <div class="ss-wrap desktop-only" id="ss-fh-wrap">
       <input class="ss-input" id="ss-fh-input" placeholder="All Fund Holiday" readonly>
@@ -440,13 +436,6 @@ td.num { text-align: right; }
       <div class="ss-dropdown" id="ss-mhl-dd">
         <input class="ss-search" id="ss-mhl-search" placeholder="Search…">
         <div class="ss-list" id="ss-mhl-list"></div>
-      </div>
-    </div>
-    <div class="ss-wrap" style="width:100%">
-      <input class="ss-input" id="ss-mthm-input" placeholder="All Thematic" readonly>
-      <div class="ss-dropdown" id="ss-mthm-dd">
-        <input class="ss-search" id="ss-mthm-search" placeholder="Search…">
-        <div class="ss-list" id="ss-mthm-list"></div>
       </div>
     </div>
     <div class="ss-wrap" style="width:100%">
@@ -692,6 +681,7 @@ function fmtThm(thm) {
 // ── Fund Holiday (loaded live from Fundholiday.xlsx — no code changes needed monthly) ──
 let FUND_HOLIDAYS = {};
 let HOLIDAY_TODAY_STR = '', HOLIDAY_NEXT_STR = '', HOLIDAY_WEEK_START_STR = '', HOLIDAY_WEEK_END_STR = '';
+let HOLIDAY_NEXTWEEK_START_STR = '', HOLIDAY_NEXTWEEK_END_STR = '';
 function ymd(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -716,6 +706,11 @@ function weekStart(d) {
   const toMonday = day === 0 ? -6 : 1 - day;
   n.setDate(n.getDate() + toMonday);
   return n;
+}
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
 }
 function fmtHolidayDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -751,6 +746,8 @@ async function loadFundHolidays() {
   HOLIDAY_NEXT_STR = ymd(nextBusinessDay(today));
   HOLIDAY_WEEK_START_STR = ymd(weekStart(today));
   HOLIDAY_WEEK_END_STR = ymd(weekEnd(today));
+  HOLIDAY_NEXTWEEK_START_STR = ymd(addDays(weekStart(today), 7));
+  HOLIDAY_NEXTWEEK_END_STR = ymd(addDays(weekEnd(today), 7));
   try {
     const res = await fetch('Fund_data/Fundholiday.xlsx?t=' + Date.now());
     if (!res.ok) throw new Error();
@@ -785,6 +782,7 @@ function getHolidayCaution(code) {
   const tokens = code.split('/');
   let today = false, next = false;
   const weekSet = new Set();
+  const nextWeekSet = new Set();
   for (const token of tokens) {
     const key = token.replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase();
     const list = FUND_HOLIDAYS[key];
@@ -793,12 +791,14 @@ function getHolidayCaution(code) {
     if (list.includes(HOLIDAY_NEXT_STR)) next = true;
     list.forEach(d => {
       if (d >= HOLIDAY_TODAY_STR && d <= HOLIDAY_WEEK_END_STR) weekSet.add(d);
+      if (d >= HOLIDAY_NEXTWEEK_START_STR && d <= HOLIDAY_NEXTWEEK_END_STR) nextWeekSet.add(d);
     });
   }
   weekSet.delete(HOLIDAY_TODAY_STR);
   weekSet.delete(HOLIDAY_NEXT_STR);
   const week = [...weekSet].sort();
-  return (today || next || week.length) ? { today, next, week } : null;
+  const nextWeek = [...nextWeekSet].sort();
+  return (today || next || week.length || nextWeek.length) ? { today, next, week, nextWeek } : null;
 }
 function fmtHoliday(flag) {
   if (!flag) return '';
@@ -806,6 +806,7 @@ function fmtHoliday(flag) {
   if (flag.today) out += `<span class="hl-badge holiday-badge">⚠️ กองทุนที่หยุดในวันนี้ (${fmtHolidayDate(HOLIDAY_TODAY_STR)})</span>`;
   if (flag.next)  out += `<span class="hl-badge holiday-badge">⚠️ กองทุนนี้หยุดในวันทำการถัดไป (${fmtHolidayDate(HOLIDAY_NEXT_STR)})</span>`;
   if (flag.week && flag.week.length) out += `<span class="hl-badge holiday-badge">⚠️ กองทุนที่หยุดในสัปดาห์นี้ (${fmtWeekDates(flag.week)})</span>`;
+  if (flag.nextWeek && flag.nextWeek.length) out += `<span class="hl-badge holiday-badge">📅 กองทุนที่หยุดในสัปดาห์หน้า (${fmtWeekDates(flag.nextWeek)})</span>`;
   return out;
 }
 
@@ -847,7 +848,7 @@ function hideMomTip() {
 }
 
 let allFunds = [], filtered = [], listenersOk = false;
-let selCls = new Set(), selMom = new Set(), selThm = new Set(), selHL = new Set(), selFH = new Set(), selType = new Set();
+let selCls = new Set(), selMom = new Set(), selHL = new Set(), selFH = new Set(), selType = new Set();
 let sortCol = null, sortDir = 1, prioritySorted = false;
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -986,7 +987,6 @@ function initSS(funds) {
   const types = [...new Set(funds.map(f => f.category).filter(Boolean))].sort();
 
   function onClsChange(clsSet) { selCls = clsSet; render(); }
-  function onThmChange(thmSet) { selThm = thmSet; render(); }
   function onHLChange(hlSet) { selHL = hlSet; render(); }
   function onFHChange(fhSet) { selFH = fhSet; render(); }
   function onTypeChange(typeSet) { selType = typeSet; render(); }
@@ -995,9 +995,9 @@ function initSS(funds) {
   const fhOptions = [
     `🚫 กองทุนที่หยุดในวันนี้ (${fmtHolidayDate(HOLIDAY_TODAY_STR)})`,
     `⚠️ กองทุนนี้หยุดในวันทำการถัดไป (${fmtHolidayDate(HOLIDAY_NEXT_STR)})`,
-    `📅 กองทุนที่หยุดในสัปดาห์นี้ (${fmtDateRange(HOLIDAY_WEEK_START_STR, HOLIDAY_WEEK_END_STR)})`
+    `📅 กองทุนที่หยุดในสัปดาห์นี้ (${fmtDateRange(HOLIDAY_WEEK_START_STR, HOLIDAY_WEEK_END_STR)})`,
+    `📅 กองทุนที่หยุดในสัปดาห์หน้า (${fmtDateRange(HOLIDAY_NEXTWEEK_START_STR, HOLIDAY_NEXTWEEK_END_STR)})`
   ];
-  const thmOptions = ['AI Value Chain','Clean Energy','Commodities','Healthcare & Biotech','Space','Technology & Innovation'];
 
   function makeSS(inputId, ddId, searchId, listId, opts, onSel, iscat) {
     let cur = new Set();
@@ -1068,12 +1068,10 @@ function initSS(funds) {
   ssHandles.type = makeSS('ss-type-input', 'ss-type-dd', 'ss-type-search', 'ss-type-list', types, onTypeChange, 'All Types');
   ssHandles.cls  = makeSS('ss-cls-input',  'ss-cls-dd',  'ss-cls-search',  'ss-cls-list',  classes, onClsChange, 'All Classifications');
   ssHandles.hl   = makeSS('ss-hl-input',   'ss-hl-dd',   'ss-hl-search',   'ss-hl-list',   hlOptions,  onHLChange,  'All Highlights');
-  ssHandles.thm  = makeSS('ss-thm-input',  'ss-thm-dd',  'ss-thm-search',  'ss-thm-list',  thmOptions, onThmChange, 'All Thematic');
   ssHandles.fh   = makeSS('ss-fh-input',   'ss-fh-dd',   'ss-fh-search',   'ss-fh-list',   fhOptions,  onFHChange,  'All Fund Holiday');
   ssHandles.mtype = makeSS('ss-mtype-input', 'ss-mtype-dd', 'ss-mtype-search', 'ss-mtype-list', types, onTypeChange, 'All Types');
   ssHandles.mcls = makeSS('ss-mcls-input', 'ss-mcls-dd', 'ss-mcls-search', 'ss-mcls-list', classes, onClsChange, 'All Classifications');
   ssHandles.mhl  = makeSS('ss-mhl-input',  'ss-mhl-dd',  'ss-mhl-search',  'ss-mhl-list',  hlOptions,  onHLChange,  'All Highlights');
-  ssHandles.mthm = makeSS('ss-mthm-input', 'ss-mthm-dd', 'ss-mthm-search', 'ss-mthm-list', thmOptions, onThmChange, 'All Thematic');
   ssHandles.mfh  = makeSS('ss-mfh-input',  'ss-mfh-dd',  'ss-mfh-search',  'ss-mfh-list',  fhOptions,  onFHChange,  'All Fund Holiday');
 
   if (!listenersOk) {
@@ -1144,7 +1142,7 @@ function setSort(col) {
 function render() {
   const q = document.getElementById('search').value.toLowerCase().trim();
 
-  const hasFilter = selCls.size || selMom.size || selThm.size || selHL.size || selFH.size || selType.size || document.getElementById('search').value.trim();
+  const hasFilter = selCls.size || selMom.size || selHL.size || selFH.size || selType.size || document.getElementById('search').value.trim();
   const btn = document.getElementById('clear-btn');
   if (btn) btn.style.display = hasFilter ? '' : 'none';
 
@@ -1152,7 +1150,6 @@ function render() {
     if (selType.size > 0 && !selType.has(f.category)) return false;
     if (selCls.size > 0 && !selCls.has(f.classification)) return false;
     if (selMom.size > 0 && !selMom.has(momKey(f.momentum))) return false;
-    if (selThm.size > 0 && !selThm.has(f.thematic)) return false;
     if (selHL.size > 0) {
       const ok = (selHL.has('👍 Recommended') && f.recommend) || (selHL.has('⭐ Monthly Pick') && f.monthly);
       if (!ok) return false;
@@ -1161,7 +1158,8 @@ function render() {
       const wantToday = [...selFH].some(v => v.startsWith('🚫 กองทุนที่หยุดในวันนี้'));
       const wantNext = [...selFH].some(v => v.startsWith('⚠️ กองทุนนี้หยุดในวันทำการถัดไป'));
       const wantWeek = [...selFH].some(v => v.startsWith('📅 กองทุนที่หยุดในสัปดาห์นี้'));
-      const ok = (wantToday && f.holiday?.today) || (wantNext && f.holiday?.next) || (wantWeek && f.holiday?.week?.length > 0);
+      const wantNextWeek = [...selFH].some(v => v.startsWith('📅 กองทุนที่หยุดในสัปดาห์หน้า'));
+      const ok = (wantToday && f.holiday?.today) || (wantNext && f.holiday?.next) || (wantWeek && f.holiday?.week?.length > 0) || (wantNextWeek && f.holiday?.nextWeek?.length > 0);
       if (!ok) return false;
     }
     if (q) {
@@ -1215,11 +1213,10 @@ function renderTable() {
     idx++;
     const fn = f.fund_name ? `<div class="fund-name" title="${esc(f.fund_name)}">${esc(f.fund_name)}</div>` : '';
     const dateLine = f.latest_date ? `<div class="fund-date">${fmtDate(f.latest_date)}</div>` : '';
-    const thmLine = f.thematic ? `<div>${fmtThm(f.thematic)}</div>` : '';
     const hlLine = (f.recommend || f.monthly || f.holiday) ? `<div>${f.recommend ? '<span class="hl-badge rec-badge">👍 Recommended</span>' : ''}${f.monthly ? '<span class="hl-badge mon-badge">⭐ Monthly Pick</span>' : ''}${fmtHoliday(f.holiday)}</div>` : '';
     html += `<tr>
       <td style="color:#bbb;font-size:11px">${idx}</td>
-      <td><div class="fund-code">${esc(f.mutual_fund)}</div>${dateLine}${hlLine}${thmLine}${fn}</td>
+      <td><div class="fund-code">${esc(f.mutual_fund)}</div>${dateLine}${hlLine}${fn}</td>
       <td>${fmtType(f.category)}</td>
       <td><span class="cls-tag" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span></td>
       <td class="num">${fmtNav(f.nav, f.nav_label)}</td>
@@ -1243,12 +1240,14 @@ function renderCards() {
     const navStr = f.nav != null ? f.nav.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4}) : '—';
     const fn = f.fund_name ? `<div class="card-fn">${esc(f.fund_name)}</div>` : '';
     const momHtml = f.momentum ? `<div style="margin-top:6px">${fmtMom(f.momentum)}</div>` : '';
-    const thmHtml = f.thematic ? `<div style="margin-top:4px">${fmtThm(f.thematic)}</div>` : '';
     const hlHtml = (f.recommend || f.monthly || f.holiday) ? `<div style="margin-top:4px">${f.recommend ? '<span class="hl-badge rec-badge">👍 Recommended</span>' : ''}${f.monthly ? '<span class="hl-badge mon-badge">⭐ Monthly Pick</span>' : ''}${fmtHoliday(f.holiday)}</div>` : '';
     html += `<div class="card">
       <div class="card-head">
-        <div><div class="card-name">${esc(f.mutual_fund)}</div><div style="margin-top:3px">${fmtType(f.category)}</div>${fn}${hlHtml}${thmHtml}</div>
-        <span class="card-cls" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span>
+        <div class="card-head-left"><div class="card-name">${esc(f.mutual_fund)}</div>${fn}${hlHtml}</div>
+        <div class="card-head-right">
+          ${fmtType(f.category)}
+          <span class="card-cls" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span>
+        </div>
       </div>
       <div class="card-nav-row">
         <div><div class="card-nav-val">${navStr}</div><div class="card-nav-lbl">${esc(f.nav_label)}</div></div>
@@ -1268,7 +1267,7 @@ function renderCards() {
 }
 
 function clearFilters() {
-  selCls.clear(); selMom.clear(); selThm.clear(); selHL.clear(); selFH.clear(); selType.clear();
+  selCls.clear(); selMom.clear(); selHL.clear(); selFH.clear(); selType.clear();
   document.getElementById('search').value = '';
   Object.values(ssHandles).forEach(h => h && h.reset());
   document.querySelectorAll('.mom-btn').forEach(b => b.className = 'mom-btn');
