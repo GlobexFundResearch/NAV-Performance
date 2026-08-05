@@ -233,6 +233,7 @@ table {
 .c-num  { width: 32px; }
 .c-fund { width: 180px; }
 .c-type { width: 90px; }
+.c-style { width: 80px; }
 .c-cls  { width: 160px; }
 .c-date { width: 82px; }
 .c-nav  { width: 88px; }
@@ -268,6 +269,10 @@ td.num { text-align: right; }
 .type-tag { display: inline-block; border-radius: 10px; padding: 2px 8px; font-size: 10px; font-weight: 700; white-space: nowrap; }
 .type-mf  { background: #e0e7ff; color: #4338ca; }
 .type-etf { background: #dcfce7; color: #15803d; }
+.style-tag { display: inline-block; border-radius: 10px; padding: 2px 8px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.style-active  { background: #fef3c7; color: #b45309; }
+.style-passive { background: #e0f2fe; color: #0369a1; }
+.style-unknown { background: #f3f4f6; color: #6b7280; font-weight: 600; white-space: normal; }
 .fund-date { color: var(--muted); font-size: 10px; margin-top: 2px; }
 .thm-badge  { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; white-space: nowrap; margin-top: 2px; }
 .hl-badge   { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 9px; font-weight: 700; white-space: normal; margin-top: 2px; margin-right: 3px; }
@@ -374,6 +379,14 @@ td.num { text-align: right; }
       </div>
     </div>
 
+    <div class="ss-wrap desktop-only" id="ss-style-wrap">
+      <input class="ss-input" id="ss-style-input" placeholder="All Styles" readonly>
+      <div class="ss-dropdown" id="ss-style-dd">
+        <input class="ss-search" id="ss-style-search" placeholder="Search…">
+        <div class="ss-list" id="ss-style-list"></div>
+      </div>
+    </div>
+
     <div class="ss-wrap desktop-only" id="ss-cls-wrap">
       <input class="ss-input" id="ss-cls-input" placeholder="All Classifications" readonly>
       <div class="ss-dropdown" id="ss-cls-dd">
@@ -425,6 +438,13 @@ td.num { text-align: right; }
       </div>
     </div>
     <div class="ss-wrap" style="width:100%">
+      <input class="ss-input" id="ss-mstyle-input" placeholder="All Styles" readonly>
+      <div class="ss-dropdown" id="ss-mstyle-dd">
+        <input class="ss-search" id="ss-mstyle-search" placeholder="Search…">
+        <div class="ss-list" id="ss-mstyle-list"></div>
+      </div>
+    </div>
+    <div class="ss-wrap" style="width:100%">
       <input class="ss-input" id="ss-mcls-input" placeholder="All Classifications" readonly>
       <div class="ss-dropdown" id="ss-mcls-dd">
         <input class="ss-search" id="ss-mcls-search" placeholder="Search…">
@@ -464,7 +484,7 @@ td.num { text-align: right; }
 <div class="table-wrap">
   <table id="main-table">
     <colgroup>
-      <col class="c-num"><col class="c-fund"><col class="c-type"><col class="c-cls">
+      <col class="c-num"><col class="c-fund"><col class="c-type"><col class="c-style"><col class="c-cls">
       <col class="c-nav"><col class="c-pct"><col class="c-pct"><col class="c-pct">
       <col class="c-pct"><col class="c-pct"><col class="c-mom">
     </colgroup>
@@ -473,6 +493,7 @@ td.num { text-align: right; }
         <th>#</th>
         <th class="sortable" data-sort="fund" onclick="setSort('fund')">Fund Code<span class="sort-icon"></span></th>
         <th>Type</th>
+        <th>Style</th>
         <th>Classification</th>
         <th class="num">NAV / Price</th>
         <th class="num sortable" data-sort="pct1d" onclick="setSort('pct1d')">%1D<span class="sort-icon"></span></th>
@@ -484,7 +505,7 @@ td.num { text-align: right; }
       </tr>
     </thead>
     <tbody id="tbl-body">
-      <tr class="state-row"><td colspan="11"><div class="spinner"></div><div>Loading…</div></td></tr>
+      <tr class="state-row"><td colspan="12"><div class="spinner"></div><div>Loading…</div></td></tr>
     </tbody>
   </table>
 </div>
@@ -848,7 +869,7 @@ function hideMomTip() {
 }
 
 let allFunds = [], filtered = [], listenersOk = false;
-let selCls = new Set(), selMom = new Set(), selHL = new Set(), selFH = new Set(), selType = new Set();
+let selCls = new Set(), selMom = new Set(), selHL = new Set(), selFH = new Set(), selType = new Set(), selStyle = new Set();
 let sortCol = null, sortDir = 1, prioritySorted = false;
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -921,6 +942,11 @@ function fmtType(cat) {
   const cls = cat === 'ETF' ? 'type-etf' : 'type-mf';
   return `<span class="type-tag ${cls}">${esc(cat)}</span>`;
 }
+function fmtStyle(style) {
+  if (!style) return '<span class="style-tag style-unknown">No Data</span>';
+  const cls = style === 'Active' ? 'style-active' : 'style-passive';
+  return `<span class="style-tag ${cls}">${esc(style)}</span>`;
+}
 
 // ── Searchable Select ─────────────────────────────────────────
 function buildSS(inputId, ddId, searchId, listId, options, value, onSelect) {
@@ -985,11 +1011,13 @@ let ssHandles = {};
 function initSS(funds) {
   const classes = [...new Set(funds.map(f => f.classification).filter(Boolean))].sort();
   const types = [...new Set(funds.map(f => f.category).filter(Boolean))].sort();
+  const styles = [...new Set(funds.map(f => f.style).filter(Boolean))].sort();
 
   function onClsChange(clsSet) { selCls = clsSet; render(); }
   function onHLChange(hlSet) { selHL = hlSet; render(); }
   function onFHChange(fhSet) { selFH = fhSet; render(); }
   function onTypeChange(typeSet) { selType = typeSet; render(); }
+  function onStyleChange(styleSet) { selStyle = styleSet; render(); }
 
   const hlOptions = ['👍 Recommended', '⭐ Monthly Pick'];
   const fhOptions = [
@@ -1066,10 +1094,12 @@ function initSS(funds) {
   }
 
   ssHandles.type = makeSS('ss-type-input', 'ss-type-dd', 'ss-type-search', 'ss-type-list', types, onTypeChange, 'All Types');
+  ssHandles.style = makeSS('ss-style-input', 'ss-style-dd', 'ss-style-search', 'ss-style-list', styles, onStyleChange, 'All Styles');
   ssHandles.cls  = makeSS('ss-cls-input',  'ss-cls-dd',  'ss-cls-search',  'ss-cls-list',  classes, onClsChange, 'All Classifications');
   ssHandles.hl   = makeSS('ss-hl-input',   'ss-hl-dd',   'ss-hl-search',   'ss-hl-list',   hlOptions,  onHLChange,  'All Highlights');
   ssHandles.fh   = makeSS('ss-fh-input',   'ss-fh-dd',   'ss-fh-search',   'ss-fh-list',   fhOptions,  onFHChange,  'All Fund Holiday');
   ssHandles.mtype = makeSS('ss-mtype-input', 'ss-mtype-dd', 'ss-mtype-search', 'ss-mtype-list', types, onTypeChange, 'All Types');
+  ssHandles.mstyle = makeSS('ss-mstyle-input', 'ss-mstyle-dd', 'ss-mstyle-search', 'ss-mstyle-list', styles, onStyleChange, 'All Styles');
   ssHandles.mcls = makeSS('ss-mcls-input', 'ss-mcls-dd', 'ss-mcls-search', 'ss-mcls-list', classes, onClsChange, 'All Classifications');
   ssHandles.mhl  = makeSS('ss-mhl-input',  'ss-mhl-dd',  'ss-mhl-search',  'ss-mhl-list',  hlOptions,  onHLChange,  'All Highlights');
   ssHandles.mfh  = makeSS('ss-mfh-input',  'ss-mfh-dd',  'ss-mfh-search',  'ss-mfh-list',  fhOptions,  onFHChange,  'All Fund Holiday');
@@ -1142,12 +1172,13 @@ function setSort(col) {
 function render() {
   const q = document.getElementById('search').value.toLowerCase().trim();
 
-  const hasFilter = selCls.size || selMom.size || selHL.size || selFH.size || selType.size || document.getElementById('search').value.trim();
+  const hasFilter = selCls.size || selMom.size || selHL.size || selFH.size || selType.size || selStyle.size || document.getElementById('search').value.trim();
   const btn = document.getElementById('clear-btn');
   if (btn) btn.style.display = hasFilter ? '' : 'none';
 
   filtered = allFunds.filter(f => {
     if (selType.size > 0 && !selType.has(f.category)) return false;
+    if (selStyle.size > 0 && !selStyle.has(f.style)) return false;
     if (selCls.size > 0 && !selCls.has(f.classification)) return false;
     if (selMom.size > 0 && !selMom.has(momKey(f.momentum))) return false;
     if (selHL.size > 0) {
@@ -1203,12 +1234,12 @@ function render() {
 
 function renderTable() {
   const tbody = document.getElementById('tbl-body');
-  if (!filtered.length) { tbody.innerHTML = `<tr class="state-row"><td colspan="11">No results.</td></tr>`; return; }
+  if (!filtered.length) { tbody.innerHTML = `<tr class="state-row"><td colspan="12">No results.</td></tr>`; return; }
   let html = '', lastCat = null, idx = 0;
   filtered.forEach(f => {
     if (!sortCol && !prioritySorted && f.category !== lastCat) {
       lastCat = f.category;
-      html += `<tr class="group-hd"><td colspan="11">▸ ${esc(f.category)}</td></tr>`;
+      html += `<tr class="group-hd"><td colspan="12">▸ ${esc(f.category)}</td></tr>`;
     }
     idx++;
     const fn = f.fund_name ? `<div class="fund-name" title="${esc(f.fund_name)}">${esc(f.fund_name)}</div>` : '';
@@ -1218,6 +1249,7 @@ function renderTable() {
       <td style="color:#bbb;font-size:11px">${idx}</td>
       <td><div class="fund-code">${esc(f.mutual_fund)}</div>${dateLine}${hlLine}${fn}</td>
       <td>${fmtType(f.category)}</td>
+      <td>${fmtStyle(f.style)}</td>
       <td><span class="cls-tag" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span></td>
       <td class="num">${fmtNav(f.nav, f.nav_label)}</td>
       <td class="num">${fmtPct(f.pct1d,false)}</td>
@@ -1246,6 +1278,7 @@ function renderCards() {
         <div class="card-head-left"><div class="card-name">${esc(f.mutual_fund)}</div>${fn}${hlHtml}</div>
         <div class="card-head-right">
           ${fmtType(f.category)}
+          ${fmtStyle(f.style)}
           <span class="card-cls" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span>
         </div>
       </div>
@@ -1267,7 +1300,7 @@ function renderCards() {
 }
 
 function clearFilters() {
-  selCls.clear(); selMom.clear(); selHL.clear(); selFH.clear(); selType.clear();
+  selCls.clear(); selMom.clear(); selHL.clear(); selFH.clear(); selType.clear(); selStyle.clear();
   document.getElementById('search').value = '';
   Object.values(ssHandles).forEach(h => h && h.reset());
   document.querySelectorAll('.mom-btn').forEach(b => b.className = 'mom-btn');
