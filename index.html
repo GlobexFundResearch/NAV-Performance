@@ -230,7 +230,7 @@ table {
   width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
   min-width: 900px;
 }
-.c-num  { width: 32px; }
+.c-chk  { width: 30px; }
 .c-fund { width: 180px; }
 .c-type { width: 90px; }
 .c-style { width: 80px; }
@@ -318,6 +318,38 @@ td.num { text-align: right; }
 
 /* ── Toast ── */
 #toast { position: fixed; bottom: 20px; right: 16px; background: #1a3c6e; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,.3); z-index: 9999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+
+/* ── Compare checkboxes ── */
+.chk-cell { text-align: center; }
+input.row-chk, input.card-chk { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); vertical-align: middle; }
+.card-title-row { display: flex; align-items: flex-start; gap: 6px; }
+.card-title-row input.card-chk { margin-top: 3px; flex-shrink: 0; }
+
+/* ── Compare bar ── */
+#compare-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
+  background: var(--primary); color: #fff; padding: 10px 16px;
+  display: none; align-items: center; justify-content: space-between; gap: 10px;
+  box-shadow: 0 -2px 10px rgba(0,0,0,.2);
+}
+#compare-bar.show { display: flex; }
+#compare-bar.mode { background: #0f2d5e; }
+.compare-bar-text { font-size: 13px; font-weight: 600; }
+.compare-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.compare-btn { padding: 6px 14px; border-radius: 20px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.compare-btn-primary { background: #fff; color: var(--primary); }
+.compare-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.compare-btn-secondary { background: rgba(255,255,255,.15); color: #fff; border: 1.5px solid rgba(255,255,255,.4); }
+
+/* ── Compare-mode row/card highlight ── */
+tbody tr.compare-row { background: #fffbe6; }
+tbody tr.compare-row:hover { background: #fff6cc; }
+.card.compare-row { border-color: #f5c518; box-shadow: 0 0 0 1.5px #f5c518; }
+
+@media (max-width: 720px) {
+  #compare-bar { padding: 10px 12px; }
+  .compare-bar-text { font-size: 12px; }
+}
 
 /* ── Responsive ── */
 @media (max-width: 720px) {
@@ -484,13 +516,13 @@ td.num { text-align: right; }
 <div class="table-wrap">
   <table id="main-table">
     <colgroup>
-      <col class="c-num"><col class="c-fund"><col class="c-type"><col class="c-style"><col class="c-cls">
+      <col class="c-chk"><col class="c-fund"><col class="c-type"><col class="c-style"><col class="c-cls">
       <col class="c-nav"><col class="c-pct"><col class="c-pct"><col class="c-pct">
       <col class="c-pct"><col class="c-pct"><col class="c-mom">
     </colgroup>
     <thead>
       <tr>
-        <th>#</th>
+        <th title="Select to compare">✓</th>
         <th class="sortable" data-sort="fund" onclick="setSort('fund')">Fund Code<span class="sort-icon"></span></th>
         <th>Type</th>
         <th>Style</th>
@@ -516,6 +548,15 @@ td.num { text-align: right; }
 </div>
 
 <div id="toast"></div>
+
+<!-- Compare bar -->
+<div id="compare-bar">
+  <span class="compare-bar-text" id="compare-bar-label"></span>
+  <div class="compare-bar-actions">
+    <button class="compare-btn compare-btn-secondary" onclick="clearCompare()">Clear</button>
+    <button class="compare-btn compare-btn-primary" id="compare-open-btn" onclick="toggleCompareMode()">Compare</button>
+  </div>
+</div>
 
 <!-- Momentum tooltip -->
 <div id="mom-backdrop" onclick="hideMomTip()"></div>
@@ -872,6 +913,75 @@ let allFunds = [], filtered = [], listenersOk = false;
 let selCls = new Set(), selMom = new Set(), selHL = new Set(), selFH = new Set(), selType = new Set(), selStyle = new Set();
 let sortCol = null, sortDir = 1, prioritySorted = false;
 
+// ── Compare selection ───────────────────────────────────────────
+// Compare mode filters the same table/card view down to just the selected
+// funds (no separate window) — selecting/deselecting live-updates the list.
+const MAX_COMPARE = 10;
+let selectedIds = new Set();
+let compareMode = false;
+let toastTimer = null;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
+function escAttr(s) {
+  return esc(s).replace(/"/g, '&quot;');
+}
+
+function toggleCompare(id, checked) {
+  if (checked) {
+    if (selectedIds.size >= MAX_COMPARE) {
+      showToast(`เลือกเปรียบเทียบได้สูงสุด ${MAX_COMPARE} กองทุน`);
+      render();
+      return;
+    }
+    selectedIds.add(id);
+  } else {
+    selectedIds.delete(id);
+    if (selectedIds.size === 0) compareMode = false;
+  }
+  render();
+}
+
+function updateCompareBar() {
+  const bar = document.getElementById('compare-bar');
+  const label = document.getElementById('compare-bar-label');
+  const btn = document.getElementById('compare-open-btn');
+  const n = selectedIds.size;
+  bar.classList.toggle('show', n > 0);
+  bar.classList.toggle('mode', compareMode);
+  if (compareMode) {
+    label.textContent = `Comparing ${n} fund${n === 1 ? '' : 's'}`;
+    btn.textContent = 'Show All Funds';
+    btn.disabled = false;
+  } else {
+    label.textContent = `${n} fund${n === 1 ? '' : 's'} selected (max ${MAX_COMPARE})`;
+    btn.textContent = 'Compare';
+    btn.disabled = n < 2;
+  }
+}
+
+function toggleCompareMode() {
+  if (compareMode) {
+    compareMode = false;
+  } else {
+    if (selectedIds.size < 2) return;
+    compareMode = true;
+  }
+  render();
+}
+
+function clearCompare() {
+  selectedIds.clear();
+  compareMode = false;
+  render();
+}
+
 // ── Helpers ──────────────────────────────────────────────────
 // Excel-style 3-color scale (red - white - green), saturating at ±PCT_SCALE_MAX%
 const PCT_SCALE_MAX = 5;
@@ -1126,6 +1236,11 @@ function initSS(funds) {
       if (e.target.closest('#mom-tip')) return;
       hideMomTip();
     }, { passive: false });
+    document.addEventListener('change', (e) => {
+      if (e.target.classList.contains('row-chk') || e.target.classList.contains('card-chk')) {
+        toggleCompare(e.target.dataset.id, e.target.checked);
+      }
+    });
     listenersOk = true;
   }
 }
@@ -1177,6 +1292,10 @@ function render() {
   if (btn) btn.style.display = hasFilter ? '' : 'none';
 
   filtered = allFunds.filter(f => {
+    if (compareMode) return selectedIds.has(f.id);
+    // Selected funds stay visible (pinned) no matter what filters/search are active,
+    // so you can keep building a comparison set without losing track of picks already made.
+    if (selectedIds.has(f.id)) return true;
     if (selType.size > 0 && !selType.has(f.category)) return false;
     if (selStyle.size > 0 && !selStyle.has(f.style)) return false;
     if (selCls.size > 0 && !selCls.has(f.classification)) return false;
@@ -1220,6 +1339,9 @@ function render() {
   } else {
     prioritySorted = true;
     filtered.sort((a, b) => {
+      const sa = selectedIds.has(a.id) ? 1 : 0;
+      const sb = selectedIds.has(b.id) ? 1 : 0;
+      if (sa !== sb) return sb - sa;
       const pa = a.recommend ? 2 : a.monthly ? 1 : 0;
       const pb = b.recommend ? 2 : b.monthly ? 1 : 0;
       if (pa !== pb) return pb - pa;
@@ -1230,23 +1352,25 @@ function render() {
   document.getElementById('count-pill').textContent = `${filtered.length} funds`;
   renderTable();
   renderCards();
+  updateCompareBar();
 }
 
 function renderTable() {
   const tbody = document.getElementById('tbl-body');
   if (!filtered.length) { tbody.innerHTML = `<tr class="state-row"><td colspan="12">No results.</td></tr>`; return; }
-  let html = '', lastCat = null, idx = 0;
+  let html = '', lastCat = null;
   filtered.forEach(f => {
     if (!sortCol && !prioritySorted && f.category !== lastCat) {
       lastCat = f.category;
       html += `<tr class="group-hd"><td colspan="12">▸ ${esc(f.category)}</td></tr>`;
     }
-    idx++;
     const fn = f.fund_name ? `<div class="fund-name" title="${esc(f.fund_name)}">${esc(f.fund_name)}</div>` : '';
     const dateLine = f.latest_date ? `<div class="fund-date">${fmtDate(f.latest_date)}</div>` : '';
     const hlLine = (f.recommend || f.monthly || f.holiday) ? `<div>${f.recommend ? '<span class="hl-badge rec-badge">👍 Recommended</span>' : ''}${f.monthly ? '<span class="hl-badge mon-badge">⭐ Monthly Pick</span>' : ''}${fmtHoliday(f.holiday)}</div>` : '';
-    html += `<tr>
-      <td style="color:#bbb;font-size:11px">${idx}</td>
+    const isSel = selectedIds.has(f.id);
+    const chk = isSel ? 'checked' : '';
+    html += `<tr${isSel ? ' class="compare-row"' : ''}>
+      <td class="chk-cell"><input type="checkbox" class="row-chk" data-id="${escAttr(f.id)}" ${chk}></td>
       <td><div class="fund-code">${esc(f.mutual_fund)}</div>${dateLine}${hlLine}${fn}</td>
       <td>${fmtType(f.category)}</td>
       <td>${fmtStyle(f.style)}</td>
@@ -1273,9 +1397,17 @@ function renderCards() {
     const fn = f.fund_name ? `<div class="card-fn">${esc(f.fund_name)}</div>` : '';
     const momHtml = f.momentum ? `<div style="margin-top:6px">${fmtMom(f.momentum)}</div>` : '';
     const hlHtml = (f.recommend || f.monthly || f.holiday) ? `<div style="margin-top:4px">${f.recommend ? '<span class="hl-badge rec-badge">👍 Recommended</span>' : ''}${f.monthly ? '<span class="hl-badge mon-badge">⭐ Monthly Pick</span>' : ''}${fmtHoliday(f.holiday)}</div>` : '';
-    html += `<div class="card">
+    const isSel = selectedIds.has(f.id);
+    const chk = isSel ? 'checked' : '';
+    html += `<div class="card${isSel ? ' compare-row' : ''}">
       <div class="card-head">
-        <div class="card-head-left"><div class="card-name">${esc(f.mutual_fund)}</div>${fn}${hlHtml}</div>
+        <div class="card-head-left">
+          <div class="card-title-row">
+            <input type="checkbox" class="card-chk" data-id="${escAttr(f.id)}" ${chk}>
+            <div class="card-name">${esc(f.mutual_fund)}</div>
+          </div>
+          ${fn}${hlHtml}
+        </div>
         <div class="card-head-right">
           ${fmtType(f.category)}
           ${fmtStyle(f.style)}
