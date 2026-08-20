@@ -73,11 +73,13 @@ header {
 }
 .ss-input:focus, .ss-input.open { border-color: var(--pri-light); background-color: #fff; }
 .ss-dropdown {
-  display: none; position: fixed;
+  position: fixed;
   background: #fff; border: 1.5px solid var(--pri-light); border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 500; overflow: hidden;
+  opacity: 0; visibility: hidden; transform: translateY(-6px) scale(.98);
+  transition: opacity .15s ease, transform .15s ease, visibility .15s;
 }
-.ss-dropdown.open { display: block; }
+.ss-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
 .ss-search {
   width: 100%; padding: 7px 10px; border: none; border-bottom: 1px solid var(--border);
   font-size: 12px; outline: none;
@@ -140,10 +142,12 @@ header {
   white-space: nowrap; flex-shrink: 0;
 }
 .filter-drawer {
-  display: none; background: var(--surface); border-bottom: 1px solid var(--border);
-  padding: 10px 12px; gap: 8px; flex-wrap: wrap;
+  display: flex; background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 12px; gap: 8px; flex-wrap: wrap;
+  max-height: 0; overflow: hidden; opacity: 0; visibility: hidden;
+  transition: max-height .25s ease, opacity .2s ease, padding .25s ease, visibility 0s .25s;
 }
-.filter-drawer.open { display: flex; }
+.filter-drawer.open { max-height: 600px; opacity: 1; padding: 10px 12px; visibility: visible; transition-delay: 0s; }
 .filter-drawer .ss-wrap { min-width: calc(50% - 4px); flex: 1; }
 
 /* ── Momentum badge ── */
@@ -157,18 +161,26 @@ header {
 .mom-neutral { background: #f3f4f6; color: #6b7280; }
 
 /* ── Momentum badge (clickable) ── */
-.mom-badge { cursor: pointer; touch-action: manipulation; }
+.mom-badge { cursor: pointer; touch-action: manipulation; transition: opacity .15s ease, transform .1s ease; }
 .mom-badge:hover { opacity: .85; }
+.mom-badge:active { transform: scale(.94); }
 
 /* ── Momentum tooltip — desktop floating ── */
-#mom-backdrop { display: none; position: fixed; inset: 0; z-index: 9998; }
+#mom-backdrop {
+  position: fixed; inset: 0; z-index: 9998;
+  opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility .2s;
+}
+#mom-backdrop.show { opacity: 1; visibility: visible; }
 #mom-tip {
-  display: none; position: fixed; z-index: 9999;
+  position: fixed; z-index: 9999;
   background: #fff; border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0,0,0,.18); padding: 0;
   min-width: 340px; max-width: 400px; overflow: hidden;
   border: 1.5px solid var(--border);
+  opacity: 0; visibility: hidden; transform: translateY(6px) scale(.98);
+  transition: opacity .18s ease, transform .18s ease, visibility .18s;
 }
+#mom-tip.show { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
 .tip-header {
   padding: 14px 18px; font-size: 15px; font-weight: 700; color: #fff;
 }
@@ -201,7 +213,9 @@ header {
     border-radius: 20px 20px 0 0;
     box-shadow: 0 -4px 24px rgba(0,0,0,.18);
     padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(100%);
   }
+  #mom-tip.show { transform: translateY(0); }
   .tip-header { padding: 16px 20px; font-size: 16px; }
   .tip-actions { padding: 12px 20px 16px; }
   .tip-action-name { font-size: 14px; }
@@ -247,14 +261,14 @@ thead th {
   background: var(--primary);
 }
 thead th.num { text-align: center; }
-th.sortable { cursor: pointer; user-select: none; }
+th.sortable { cursor: pointer; user-select: none; transition: background-color .15s ease; }
 th.sortable:hover { background: rgba(255,255,255,.12); }
-.sort-icon { font-size: 9px; margin-left: 3px; opacity: .4; }
+.sort-icon { font-size: 9px; margin-left: 3px; opacity: .4; transition: opacity .15s ease; }
 th.sort-asc .sort-icon::after  { content: ' ▲'; opacity: 1; }
 th.sort-desc .sort-icon::after { content: ' ▼'; opacity: 1; }
 th.sort-asc .sort-icon, th.sort-desc .sort-icon { opacity: 1; }
 
-tbody tr { transition: background .12s; }
+tbody tr { transition: background-color .18s ease; }
 tbody tr:hover { background: #f0f5ff; }
 tbody td { border-bottom: 1px solid #e8edf4; }
 tr.group-hd { background: #e8f0fe; }
@@ -293,7 +307,7 @@ td.num { text-align: right; }
 
 /* ── Mobile cards ── */
 .card-grid { display: none; padding: 10px; gap: 8px; flex-direction: column; }
-.card { background: var(--surface); border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); border: 1px solid var(--border); }
+.card { background: var(--surface); border-radius: 12px; padding: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); border: 1px solid var(--border); transition: box-shadow .2s ease, border-color .2s ease, background-color .2s ease; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; gap: 6px; }
 .card-head-left { min-width: 0; }
 .card-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
@@ -329,14 +343,17 @@ input.row-chk, input.card-chk { width: 16px; height: 16px; cursor: pointer; acce
 #compare-bar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
   background: var(--primary); color: #fff; padding: 10px 16px;
-  display: none; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
   box-shadow: 0 -2px 10px rgba(0,0,0,.2);
+  transform: translateY(100%); opacity: 0; pointer-events: none;
+  transition: transform .25s ease, opacity .2s ease, background-color .2s ease;
 }
-#compare-bar.show { display: flex; }
+#compare-bar.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
 #compare-bar.mode { background: #0f2d5e; }
 .compare-bar-text { font-size: 13px; font-weight: 600; }
 .compare-bar-actions { display: flex; gap: 8px; flex-shrink: 0; }
-.compare-btn { padding: 6px 14px; border-radius: 20px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.compare-btn { padding: 6px 14px; border-radius: 20px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background-color .15s ease, opacity .15s ease, transform .1s ease; }
+.compare-btn:active { transform: scale(.96); }
 .compare-btn-primary { background: #fff; color: var(--primary); }
 .compare-btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 .compare-btn-secondary { background: rgba(255,255,255,.15); color: #fff; border: 1.5px solid rgba(255,255,255,.4); }
@@ -570,6 +587,11 @@ tbody tr.compare-row:hover { background: #fff6cc; }
 </div>
 
 <script>
+function debounce(fn, wait) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+}
+
 const MOMENTUM_ACTIONS = {
   Rising: {
     label: 'Rising Momentum', color: '#d97706', bg: '#f59e0b',
@@ -885,8 +907,8 @@ function showMomTip(badgeEl, key) {
       <div class="tip-action-desc">${a.desc}</div>
     </div>`
   ).join('');
-  tip.style.display = 'block';
-  backdrop.style.display = 'block';
+  tip.classList.add('show');
+  backdrop.classList.add('show');
 
   // Mobile: bottom sheet — no positioning needed (CSS handles it)
   if (window.innerWidth <= 680) return;
@@ -905,8 +927,8 @@ function showMomTip(badgeEl, key) {
 }
 
 function hideMomTip() {
-  document.getElementById('mom-tip').style.display = 'none';
-  document.getElementById('mom-backdrop').style.display = 'none';
+  document.getElementById('mom-tip').classList.remove('show');
+  document.getElementById('mom-backdrop').classList.remove('show');
 }
 
 let allFunds = [], filtered = [], listenersOk = false;
@@ -1215,7 +1237,7 @@ function initSS(funds) {
   ssHandles.mfh  = makeSS('ss-mfh-input',  'ss-mfh-dd',  'ss-mfh-search',  'ss-mfh-list',  fhOptions,  onFHChange,  'All Fund Holiday');
 
   if (!listenersOk) {
-    document.getElementById('search').addEventListener('input', render);
+    document.getElementById('search').addEventListener('input', debounce(render, 120));
     function handleDocTap(e) {
       document.querySelectorAll('.ss-dropdown').forEach(d => d.classList.remove('open'));
       document.querySelectorAll('.ss-input').forEach(i => i.classList.remove('open'));
@@ -1350,9 +1372,14 @@ function render() {
   }
 
   document.getElementById('count-pill').textContent = `${filtered.length} funds`;
-  renderTable();
-  renderCards();
+  // Only build the view actually on screen (desktop table vs mobile cards) — building
+  // both on every keystroke/selection was doubling the work for no visible benefit.
+  if (isMobileView()) { renderCards(); } else { renderTable(); }
   updateCompareBar();
+}
+
+function isMobileView() {
+  return window.matchMedia('(max-width: 720px)').matches;
 }
 
 function renderTable() {
@@ -1503,6 +1530,14 @@ updateStickyOffset();
 window.addEventListener('resize', updateStickyOffset);
 window.addEventListener('load', updateStickyOffset);
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateStickyOffset);
+
+// Re-render only when crossing the mobile/desktop breakpoint, so whichever view
+// (table vs cards) just became visible gets populated instead of staying stale.
+let lastIsMobileView = isMobileView();
+window.addEventListener('resize', debounce(() => {
+  const nowMobile = isMobileView();
+  if (nowMobile !== lastIsMobileView) { lastIsMobileView = nowMobile; render(); }
+}, 150));
 </script>
 <script src="nav_data.js"></script>
 </body>
