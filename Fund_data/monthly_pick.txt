@@ -4,7 +4,7 @@
 # To remove a fund: delete its line (or put a # in front of it).
 # After editing, upload this file to GitHub (same folder as index.html).
 
-ES-LOVE
+ES-USBLUECHIP-UH
 MEGA10CHINA-A
-UHERO
-PRINCIPAL GCLOUD-A
+LHCYBER-A
+DAOL-ENERGY
