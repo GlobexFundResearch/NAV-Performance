@@ -4,11 +4,6 @@
 # To remove a fund: delete its line (or put a # in front of it).
 # After editing, upload this file to GitHub (same folder as index.html).
 
-DAOL-PLAY
-LHESPORT-A
-LHESPORT-D
-UHERO
-
 LHCYBER-A
 LHCYBER-D
 PRINCIPAL GCLOUD-A
@@ -21,6 +16,8 @@ TLQUANT-GROW-A
 
 ES-FINTECH
 MFTECH
+M-EUBANK
+
 SCBFINTECH(A)
 ES-GENOME
 SCBGENOME(A)
@@ -29,6 +26,7 @@ LHLONGEVITY
 ES-USBLUECHIP
 ES-USBLUECHIP-UH (Unhedged)
 SCBUSFOCUS(A)
+TOP11USA
 
 DAOL-GTECH
 ES-GTECH
