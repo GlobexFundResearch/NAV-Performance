@@ -4,8 +4,9 @@
 # To remove a fund: delete its line (or put a # in front of it).
 # After editing, upload this file to GitHub (same folder as index.html).
 
-ES-USBLUECHIP
-ES-USBLUECHIP-UH (Unhedged)
-MEGA10CHINA-A
-LHCYBER-A
-DAOL-ENERGY
+TOP11JPN
+M-FREEDOM
+DAOL-SUPERAI
+LHSUPERAI
+DAOL-COPPER
+LHCOPPER
