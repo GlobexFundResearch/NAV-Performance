@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
 <title>NAV Performance Report</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +16,7 @@
   --bg: #f0f4f8; --surface: #fff; --primary: #1a3c6e; --pri-light: #2557a7;
   --accent: #dbeafe; --border: #d1dce8; --text: #1a2332; --muted: #6b7a8d;
   --header-h: 52px;
+  --tabbar-h: 40px;
 }
 
 body { font-family: 'Prompt', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; -webkit-tap-highlight-color: transparent; }
@@ -51,7 +51,7 @@ header {
 
 /* ── Filter bar ── */
 .filterbar {
-  position: sticky; top: var(--header-h); z-index: 190;
+  position: sticky; top: calc(var(--header-h) + var(--tabbar-h)); z-index: 190;
   background: var(--surface); border-bottom: 1px solid var(--border);
   box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
@@ -369,6 +369,175 @@ tbody tr.compare-row:hover { background: #fff6cc; }
   .compare-bar-text { font-size: 12px; }
 }
 
+[hidden] { display: none !important; }
+
+/* ── Tabs ── */
+.tabbar {
+  position: sticky; top: var(--header-h); z-index: 195; height: var(--tabbar-h);
+  display: flex; align-items: flex-end; gap: 4px; padding: 0 16px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  border: none; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--muted);
+  padding: 0 14px 9px; cursor: pointer; border-bottom: 2.5px solid transparent; margin-bottom: -1px;
+  transition: color .15s ease, border-color .15s ease; white-space: nowrap;
+}
+.tab-btn:hover { color: var(--primary); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--pri-light); }
+body.on-holiday-tab #compare-bar { display: none; }
+.table-wrap, #card-grid { scroll-margin-top: var(--sticky-offset, 132px); }
+
+/* ── Language toggle ── */
+.lang-toggle {
+  margin-left: auto; align-self: center; flex-shrink: 0; display: flex;
+  border: 1.5px solid var(--border); border-radius: 16px; overflow: hidden;
+}
+.lang-toggle button {
+  border: none; background: #fff; font: inherit; font-size: 11px; font-weight: 700; color: var(--muted);
+  padding: 4px 10px; cursor: pointer; transition: background-color .15s ease, color .15s ease;
+}
+.lang-toggle button.on { background: var(--primary); color: #fff; }
+.fh-note { font-size: 10px; color: #b45309; padding: 6px 10px 0; }
+
+/* ── Featured cards: Recommended | Monthly Pick | Top 1 Month ── */
+.feat-section { margin: 12px 16px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.feat-group {
+  min-width: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 12px 12px; box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.feat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.feat-title { font-weight: 700; font-size: 14px; color: var(--primary); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feat-count { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+.feat-arrows { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.feat-pos { font-size: 11px; color: var(--muted); font-weight: 600; margin-right: 4px; font-variant-numeric: tabular-nums; }
+.feat-arrows button {
+  width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border); background: #fff;
+  cursor: pointer; color: var(--primary); font-size: 15px; line-height: 1;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.feat-arrows button:hover { border-color: var(--pri-light); background: var(--accent); }
+.feat-row {
+  display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth;
+  padding: 2px 2px 6px; scrollbar-width: thin;
+}
+.feat-card {
+  flex: 0 0 calc(100% - 22px); min-width: 0; scroll-snap-align: start; position: relative; overflow: hidden;
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 12px 10px; background: #fff;
+  cursor: pointer; transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
+}
+.feat-card::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--pri-light); }
+.feat-card.mon::before { background: #f5c518; }
+.feat-card.top::before { background: #00b050; }
+.feat-rank {
+  position: absolute; top: 10px; right: 10px; min-width: 26px; height: 22px; padding: 0 7px; border-radius: 11px;
+  background: var(--primary); color: #fff; font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.feat-rank.gold { background: #f5c518; color: #5b4500; }
+.feat-card.top .feat-code { padding-right: 34px; }
+.feat-card:hover, .feat-card:focus-visible { box-shadow: 0 6px 18px rgba(26,60,110,.12); transform: translateY(-2px); border-color: #b8ccf0; outline: none; }
+.feat-code { font-weight: 700; color: var(--primary); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feat-name { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.feat-tags { display: flex; gap: 4px; margin: 7px 0; flex-wrap: wrap; }
+.feat-nav-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.feat-nav-val { font-weight: 700; font-size: 16px; }
+.feat-nav-lbl { font-size: 10px; color: var(--muted); }
+.feat-perf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 6px; }
+
+/* ── Fund Holiday calendar tab ── */
+.holiday-page { padding: 14px 16px 40px; }
+.hol-toolbar {
+  display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.hol-search { position: relative; flex: 1; min-width: 220px; max-width: 420px; }
+.hol-search input {
+  width: 100%; padding: 8px 32px; border: 1.5px solid var(--border); border-radius: 20px;
+  font: inherit; font-size: 13px; outline: none; background: #f8fafc; transition: border-color .2s ease;
+}
+.hol-search input:focus { border-color: var(--pri-light); background: #fff; }
+.hol-clear {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  border: none; background: none; cursor: pointer; color: var(--muted); font-size: 13px; padding: 4px;
+}
+.hol-yearnav { display: flex; align-items: center; gap: 6px; }
+.hol-yearnav button {
+  border: 1.5px solid var(--border); background: #fff; border-radius: 8px; min-width: 32px; height: 32px;
+  cursor: pointer; font: inherit; font-weight: 700; color: var(--primary); transition: border-color .15s ease;
+}
+.hol-yearnav button:hover { border-color: var(--pri-light); }
+.hol-yearnav .hol-today { padding: 0 12px; font-size: 12px; }
+#hol-year { font-weight: 700; font-size: 15px; min-width: 48px; text-align: center; color: var(--primary); }
+.hol-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin: 10px 2px; align-items: center; }
+.hol-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -2px; margin-right: 4px; }
+.hol-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+.hol-cal {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+}
+.hol-month { padding: 6px; border-radius: 10px; transition: background-color .2s ease; }
+.hol-month.has-fund-hol { background: #fff7ed; }
+.hol-month-title { text-align: center; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.hol-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.hol-wd { font-size: 10px; color: var(--muted); padding: 4px 0; }
+.hol-day {
+  position: relative; aspect-ratio: 1; border: none; background: none; border-radius: 50%; padding: 0;
+  font: inherit; font-size: 11.5px; color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background-color .15s ease, color .15s ease;
+}
+.hol-day:hover { background: var(--accent); }
+.hol-day.empty { pointer-events: none; }
+.hol-day.weekend { color: #dc2626; }
+.hol-day.past { color: #c5cdd8; }
+.hol-day.today { box-shadow: inset 0 0 0 1.5px #f5c518; font-weight: 700; }
+.hol-day.has-hol::after {
+  content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: 50%; background: #ef4444;
+}
+.hol-day.past.has-hol::after { background: #fca5a5; }
+.hol-day.is-hol { background: #ef4444; color: #fff; font-weight: 700; }
+.hol-day.is-hol.past { background: #fecaca; }
+.hol-day.picked { box-shadow: inset 0 0 0 2px var(--pri-light); }
+.hol-panel {
+  position: sticky; top: calc(var(--header-h) + var(--tabbar-h) + 12px);
+  display: flex; flex-direction: column; gap: 12px;
+  max-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 24px); overflow: auto;
+}
+.hol-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.hol-card-title { font-weight: 700; color: var(--primary); font-size: 14px; word-break: break-word; }
+.hol-card-sub { font-size: 11px; color: var(--muted); margin: 2px 0 8px; }
+.hol-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.hol-list button {
+  width: 100%; text-align: left; border: 1px solid #fecaca; background: #fff7f7; border-radius: 8px;
+  padding: 6px 10px; font: inherit; font-size: 12px; cursor: pointer; color: #b91c1c;
+  display: flex; justify-content: space-between; gap: 8px; transition: background-color .15s ease;
+}
+.hol-list button:hover { background: #fee2e2; }
+.hol-list.past button { background: #f8fafc; border-color: var(--border); color: var(--muted); }
+.hol-list .hol-count { font-weight: 700; }
+.hol-chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 320px; overflow: auto; }
+.hol-chip {
+  border: 1px solid var(--border); background: #f8fafc; border-radius: 12px; padding: 3px 9px;
+  font: inherit; font-size: 11px; font-weight: 600; color: var(--primary); cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.hol-chip:hover, .hol-chip.on { background: var(--pri-light); color: #fff; border-color: var(--pri-light); }
+.hol-day-filter {
+  width: 100%; padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 16px;
+  font: inherit; font-size: 12px; margin-bottom: 8px; outline: none;
+}
+.hol-day-filter:focus { border-color: var(--pri-light); }
+.hol-empty, .hol-tip { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.hol-card details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
+@media (max-width: 900px) {
+  .feat-section { grid-template-columns: minmax(0, 1fr); }
+  .hol-layout { grid-template-columns: 1fr; }
+  .hol-panel { position: static; max-height: none; order: -1; }
+}
+
 /* ── Responsive ── */
 @media (max-width: 720px) {
   :root { --header-h: 76px; }
@@ -381,6 +550,15 @@ tbody tr.compare-row:hover { background: #fff6cc; }
   .card-grid { display: flex; }
   .filter-btn { display: block; }
   .filterbar-inner .desktop-only { display: none; }
+  .tabbar { padding: 0 8px; gap: 0; }
+  .feat-section { margin: 10px 10px 0; }
+  .feat-arrows button { display: none; }
+  .tab-btn { padding: 0 8px 9px; font-size: 12px; }
+  .lang-toggle button { padding: 3px 8px; }
+  .holiday-page { padding: 10px; }
+  .hol-cal { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); padding: 10px; gap: 8px; }
+  .hol-day { font-size: 10.5px; }
+  .hol-yearnav { width: 100%; justify-content: space-between; }
 }
 </style>
 </head>
@@ -390,8 +568,8 @@ tbody tr.compare-row:hover { background: #fff6cc; }
 <div id="maintenance-overlay" style="display:none">
   <div class="maint-card">
     <div class="maint-icon">🛠️</div>
-    <div class="maint-title">ขออภัย กำลังอยู่ระหว่างการ Update ข้อมูล</div>
-    <div class="maint-sub">โดยเราจะกลับมาในเร็ว ๆ นี้</div>
+    <div class="maint-title" data-i18n="maintTitle">Sorry, we're updating the data</div>
+    <div class="maint-sub" data-i18n="maintSub">We'll be back shortly</div>
   </div>
 </div>
 
@@ -399,17 +577,29 @@ tbody tr.compare-row:hover { background: #fff6cc; }
 <header>
   <div>
     <div class="h-toprow">
-      <span class="h-title">NAV Performance Report</span>
-      <span class="h-tag">(Internal Use Only)</span>
+      <span class="h-title" data-i18n="title">NAV Performance Report</span>
+      <span class="h-tag" data-i18n="internal">(Internal Use Only)</span>
     </div>
-    <div class="h-sub">Source: LSEG Refinitiv Data Platform</div>
+    <div class="h-sub" data-i18n="source">Source: LSEG Refinitiv Data Platform</div>
   </div>
   <div class="h-right">
-    <div style="font-size:12px;font-weight:600">Version 2.0 Beta</div>
-    <div style="font-size:10px;opacity:.7;margin-top:2px">Created by GBS Fund Research</div>
-    <div style="font-size:10px;opacity:.7;margin-top:2px"><span id="total-funds">—</span> funds · <span id="upd-date">—</span></div>
+    <div style="font-size:12px;font-weight:600" data-i18n="version">Version 2.0 Beta</div>
+    <div style="font-size:10px;opacity:.7;margin-top:2px" data-i18n="createdBy">Created by GBS Fund Research</div>
+    <div style="font-size:10px;opacity:.7;margin-top:2px"><span id="total-funds">—</span> <span data-i18n="funds">funds</span> · <span id="upd-date">—</span></div>
   </div>
 </header>
+
+<!-- Tabs -->
+<nav class="tabbar" role="tablist">
+  <button class="tab-btn active" role="tab" data-tab="nav" onclick="switchTab('nav')">📊 <span data-i18n="tabNav">NAV Report</span></button>
+  <button class="tab-btn" role="tab" data-tab="holiday" onclick="switchTab('holiday')">📅 <span data-i18n="tabHoliday">Fund Holiday Calendar</span></button>
+  <div class="lang-toggle" role="group" aria-label="Language">
+    <button type="button" data-lang="en" onclick="setLang('en')">EN</button>
+    <button type="button" data-lang="th" onclick="setLang('th')">TH</button>
+  </div>
+</nav>
+
+<div id="tab-nav">
 
 <!-- Filter bar -->
 <div class="filterbar">
@@ -417,14 +607,14 @@ tbody tr.compare-row:hover { background: #fff6cc; }
     <!-- Search -->
     <div class="search-wrap">
       <span class="search-icon">🔍</span>
-      <input type="search" id="search" placeholder="Search fund…" autocomplete="off">
+      <input type="search" id="search" placeholder="Search fund…" data-i18n-ph="searchFund" autocomplete="off">
     </div>
 
     <!-- Desktop filters -->
     <div class="ss-wrap desktop-only" id="ss-type-wrap">
       <input class="ss-input" id="ss-type-input" placeholder="All Types" readonly>
       <div class="ss-dropdown" id="ss-type-dd">
-        <input class="ss-search" id="ss-type-search" placeholder="Search…">
+        <input class="ss-search" id="ss-type-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-type-list"></div>
       </div>
     </div>
@@ -432,7 +622,7 @@ tbody tr.compare-row:hover { background: #fff6cc; }
     <div class="ss-wrap desktop-only" id="ss-style-wrap">
       <input class="ss-input" id="ss-style-input" placeholder="All Styles" readonly>
       <div class="ss-dropdown" id="ss-style-dd">
-        <input class="ss-search" id="ss-style-search" placeholder="Search…">
+        <input class="ss-search" id="ss-style-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-style-list"></div>
       </div>
     </div>
@@ -440,7 +630,7 @@ tbody tr.compare-row:hover { background: #fff6cc; }
     <div class="ss-wrap desktop-only" id="ss-cls-wrap">
       <input class="ss-input" id="ss-cls-input" placeholder="All Classifications" readonly>
       <div class="ss-dropdown" id="ss-cls-dd">
-        <input class="ss-search" id="ss-cls-search" placeholder="Search…">
+        <input class="ss-search" id="ss-cls-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-cls-list"></div>
       </div>
     </div>
@@ -448,33 +638,32 @@ tbody tr.compare-row:hover { background: #fff6cc; }
     <div class="ss-wrap desktop-only" id="ss-hl-wrap">
       <input class="ss-input" id="ss-hl-input" placeholder="All Highlights" readonly>
       <div class="ss-dropdown" id="ss-hl-dd">
-        <input class="ss-search" id="ss-hl-search" placeholder="Search…">
+        <input class="ss-search" id="ss-hl-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-hl-list"></div>
       </div>
     </div>
 
-
     <div class="ss-wrap desktop-only" id="ss-fh-wrap">
       <input class="ss-input" id="ss-fh-input" placeholder="All Fund Holiday" readonly>
       <div class="ss-dropdown" id="ss-fh-dd">
-        <div style="font-size:10px;color:#b45309;padding:6px 10px 0">⚠️ คำเตือน ข้อมูล as of 29-Sep-26</div>
-        <input class="ss-search" id="ss-fh-search" placeholder="Search…">
+        <div class="fh-note"></div>
+        <input class="ss-search" id="ss-fh-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-fh-list"></div>
       </div>
     </div>
 
     <!-- Momentum filter -->
     <div class="mom-filter-wrap desktop-only">
-      <span style="font-size:11px;color:var(--muted);white-space:nowrap">Momentum:</span>
-      <button class="mom-btn" data-mom="" onclick="setMom(this)">All</button>
-      <button class="mom-btn" data-mom="Strong" onclick="setMom(this)">● Strong</button>
-      <button class="mom-btn" data-mom="Rising" onclick="setMom(this)">● Rising</button>
-      <button class="mom-btn" data-mom="Fading" onclick="setMom(this)">● Fading</button>
-      <button class="mom-btn" data-mom="Neutral" onclick="setMom(this)">● Neutral</button>
+      <span style="font-size:11px;color:var(--muted);white-space:nowrap" data-i18n="momentumColon">Momentum:</span>
+      <button class="mom-btn" data-mom="" onclick="setMom(this)"><span data-i18n="all">All</span></button>
+      <button class="mom-btn" data-mom="Strong" onclick="setMom(this)">● <span data-i18n="momStrong">Strong</span></button>
+      <button class="mom-btn" data-mom="Rising" onclick="setMom(this)">● <span data-i18n="momRising">Rising</span></button>
+      <button class="mom-btn" data-mom="Fading" onclick="setMom(this)">● <span data-i18n="momFading">Fading</span></button>
+      <button class="mom-btn" data-mom="Neutral" onclick="setMom(this)">● <span data-i18n="momNeutral">Neutral</span></button>
     </div>
 
-    <button class="clear-btn desktop-only" id="clear-btn" onclick="clearFilters()" style="display:none">✕ Clear</button>
-    <button class="filter-btn" onclick="toggleFilters()">⚙ Filter</button>
+    <button class="clear-btn desktop-only" id="clear-btn" onclick="clearFilters()" style="display:none">✕ <span data-i18n="clear">Clear</span></button>
+    <button class="filter-btn" onclick="toggleFilters()">⚙ <span data-i18n="filter">Filter</span></button>
     <span class="count-pill" id="count-pill">—</span>
   </div>
 
@@ -483,52 +672,89 @@ tbody tr.compare-row:hover { background: #fff6cc; }
     <div class="ss-wrap" style="width:100%">
       <input class="ss-input" id="ss-mtype-input" placeholder="All Types" readonly>
       <div class="ss-dropdown" id="ss-mtype-dd">
-        <input class="ss-search" id="ss-mtype-search" placeholder="Search…">
+        <input class="ss-search" id="ss-mtype-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-mtype-list"></div>
       </div>
     </div>
     <div class="ss-wrap" style="width:100%">
       <input class="ss-input" id="ss-mstyle-input" placeholder="All Styles" readonly>
       <div class="ss-dropdown" id="ss-mstyle-dd">
-        <input class="ss-search" id="ss-mstyle-search" placeholder="Search…">
+        <input class="ss-search" id="ss-mstyle-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-mstyle-list"></div>
       </div>
     </div>
     <div class="ss-wrap" style="width:100%">
       <input class="ss-input" id="ss-mcls-input" placeholder="All Classifications" readonly>
       <div class="ss-dropdown" id="ss-mcls-dd">
-        <input class="ss-search" id="ss-mcls-search" placeholder="Search…">
+        <input class="ss-search" id="ss-mcls-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-mcls-list"></div>
       </div>
     </div>
     <div class="ss-wrap" style="width:100%">
       <input class="ss-input" id="ss-mhl-input" placeholder="All Highlights" readonly>
       <div class="ss-dropdown" id="ss-mhl-dd">
-        <input class="ss-search" id="ss-mhl-search" placeholder="Search…">
+        <input class="ss-search" id="ss-mhl-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-mhl-list"></div>
       </div>
     </div>
     <div class="ss-wrap" style="width:100%">
       <input class="ss-input" id="ss-mfh-input" placeholder="All Fund Holiday" readonly>
       <div class="ss-dropdown" id="ss-mfh-dd">
-        <div style="font-size:10px;color:#b45309;padding:6px 10px 0">⚠️ คำเตือน ข้อมูล as of 29-Sep-26</div>
-        <input class="ss-search" id="ss-mfh-search" placeholder="Search…">
+        <div class="fh-note"></div>
+        <input class="ss-search" id="ss-mfh-search" placeholder="Search…" data-i18n-ph="searchDots">
         <div class="ss-list" id="ss-mfh-list"></div>
       </div>
     </div>
     <div style="width:100%">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Momentum:</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px" data-i18n="momentumColon">Momentum:</div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">
-        <button class="mom-btn" data-mom="" onclick="setMom(this)">All</button>
-        <button class="mom-btn" data-mom="Strong" onclick="setMom(this)">Strong</button>
-        <button class="mom-btn" data-mom="Rising" onclick="setMom(this)">Rising</button>
-        <button class="mom-btn" data-mom="Fading" onclick="setMom(this)">Fading</button>
-        <button class="mom-btn" data-mom="Neutral" onclick="setMom(this)">Neutral</button>
+        <button class="mom-btn" data-mom="" onclick="setMom(this)"><span data-i18n="all">All</span></button>
+        <button class="mom-btn" data-mom="Strong" onclick="setMom(this)"><span data-i18n="momStrong">Strong</span></button>
+        <button class="mom-btn" data-mom="Rising" onclick="setMom(this)"><span data-i18n="momRising">Rising</span></button>
+        <button class="mom-btn" data-mom="Fading" onclick="setMom(this)"><span data-i18n="momFading">Fading</span></button>
+        <button class="mom-btn" data-mom="Neutral" onclick="setMom(this)"><span data-i18n="momNeutral">Neutral</span></button>
       </div>
     </div>
-    <button onclick="clearFilters()" style="padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:#fff;font-size:12px;cursor:pointer;color:var(--muted);">✕ Clear</button>
+    <button onclick="clearFilters()" style="padding:6px 14px;border:1.5px solid var(--border);border-radius:20px;background:#fff;font-size:12px;cursor:pointer;color:var(--muted);">✕ <span data-i18n="clear">Clear</span></button>
   </div>
 </div>
+
+<!-- Featured: Recommended | Monthly Pick | Top 1M -->
+<section class="feat-section" id="feat-section">
+  <div class="feat-group" id="feat-rec-group">
+    <div class="feat-head">
+      <div class="feat-title">👍 <span data-i18n="colRec">Recommended</span> <span class="feat-count" id="feat-rec-count"></span></div>
+      <div class="feat-arrows">
+        <span class="feat-pos" id="feat-rec-pos"></span>
+        <button type="button" aria-label="Previous" onclick="scrollFeat('feat-rec', -1)">‹</button>
+        <button type="button" aria-label="Next" onclick="scrollFeat('feat-rec', 1)">›</button>
+      </div>
+    </div>
+    <div class="feat-row" id="feat-rec"></div>
+  </div>
+  <div class="feat-group" id="feat-mon-group">
+    <div class="feat-head">
+      <div class="feat-title">⭐ <span data-i18n="colMon">Monthly Pick</span> <span class="feat-count" id="feat-mon-count"></span></div>
+      <div class="feat-arrows">
+        <span class="feat-pos" id="feat-mon-pos"></span>
+        <button type="button" aria-label="Previous" onclick="scrollFeat('feat-mon', -1)">‹</button>
+        <button type="button" aria-label="Next" onclick="scrollFeat('feat-mon', 1)">›</button>
+      </div>
+    </div>
+    <div class="feat-row" id="feat-mon"></div>
+  </div>
+  <div class="feat-group" id="feat-top-group">
+    <div class="feat-head">
+      <div class="feat-title">🏆 <span data-i18n="colTop">Performance Top 1 Month</span> <span class="feat-count" id="feat-top-count"></span></div>
+      <div class="feat-arrows">
+        <span class="feat-pos" id="feat-top-pos"></span>
+        <button type="button" aria-label="Previous" onclick="scrollFeat('feat-top', -1)">‹</button>
+        <button type="button" aria-label="Next" onclick="scrollFeat('feat-top', 1)">›</button>
+      </div>
+    </div>
+    <div class="feat-row" id="feat-top"></div>
+  </div>
+</section>
 
 <!-- Desktop Table -->
 <div class="table-wrap">
@@ -540,29 +766,59 @@ tbody tr.compare-row:hover { background: #fff6cc; }
     </colgroup>
     <thead>
       <tr>
-        <th title="Select to compare">✓</th>
-        <th class="sortable" data-sort="fund" onclick="setSort('fund')">Fund Code<span class="sort-icon"></span></th>
-        <th>Type</th>
-        <th>Style</th>
-        <th>Classification</th>
-        <th class="num">NAV / Price</th>
+        <th data-i18n-title="selectCompare" title="Select to compare">✓</th>
+        <th class="sortable" data-sort="fund" onclick="setSort('fund')"><span data-i18n="thFund">Fund Code</span><span class="sort-icon"></span></th>
+        <th data-i18n="thType">Type</th>
+        <th data-i18n="thStyle">Style</th>
+        <th data-i18n="thCls">Classification</th>
+        <th class="num" data-i18n="thNav">NAV / Price</th>
         <th class="num sortable" data-sort="pct1d" onclick="setSort('pct1d')">%1D<span class="sort-icon"></span></th>
         <th class="num sortable" data-sort="pct1w" onclick="setSort('pct1w')">%1W<span class="sort-icon"></span></th>
         <th class="num sortable" data-sort="pct1m" onclick="setSort('pct1m')">%1M<span class="sort-icon"></span></th>
         <th class="num sortable" data-sort="pct3m" onclick="setSort('pct3m')">%3M<span class="sort-icon"></span></th>
         <th class="num sortable" data-sort="pct1y" onclick="setSort('pct1y')">%1Y<span class="sort-icon"></span></th>
-        <th class="sortable" data-sort="momentum" onclick="setSort('momentum')">Momentum <span class="mom-info" title="เป็นเพียงข้อมูล Technical เบื้องต้นเท่านั้น">i</span><span class="sort-icon"></span></th>
+        <th class="sortable" data-sort="momentum" onclick="setSort('momentum')"><span data-i18n="thMom">Momentum</span> <span class="mom-info" data-i18n-title="techOnly" title="Basic technical information only">i</span><span class="sort-icon"></span></th>
       </tr>
     </thead>
     <tbody id="tbl-body">
-      <tr class="state-row"><td colspan="12"><div class="spinner"></div><div>Loading…</div></td></tr>
+      <tr class="state-row"><td colspan="12"><div class="spinner"></div><div data-i18n="loading">Loading…</div></td></tr>
     </tbody>
   </table>
 </div>
 
 <!-- Mobile Cards -->
 <div class="card-grid" id="card-grid">
-  <div class="state-msg"><div class="spinner"></div><div>Loading…</div></div>
+  <div class="state-msg"><div class="spinner"></div><div data-i18n="loading">Loading…</div></div>
+</div>
+
+</div><!-- /#tab-nav -->
+
+<!-- Fund Holiday calendar tab -->
+<div id="tab-holiday" class="holiday-page" hidden>
+  <div class="hol-toolbar">
+    <div class="hol-search">
+      <span class="search-icon">🔍</span>
+      <input id="hol-search" list="hol-fund-list" placeholder="Search fund code, e.g. LHLONGEVITY" data-i18n-ph="holSearchPh" autocomplete="off">
+      <button type="button" class="hol-clear" id="hol-clear" onclick="clearHolSearch()" aria-label="Clear" hidden>✕</button>
+      <datalist id="hol-fund-list"></datalist>
+    </div>
+    <div class="hol-yearnav">
+      <button type="button" onclick="changeHolYear(-1)" aria-label="Previous year">‹</button>
+      <span id="hol-year">—</span>
+      <button type="button" onclick="changeHolYear(1)" aria-label="Next year">›</button>
+      <button type="button" class="hol-today" onclick="goHolToday()" data-i18n="today">Today</button>
+    </div>
+  </div>
+  <div class="hol-legend">
+    <span><i style="background:#ef4444"></i><span data-i18n="legFund">Selected fund's holiday</span></span>
+    <span><i style="background:#fff;box-shadow:inset 0 0 0 2px #ef4444;width:6px;height:6px"></i><span data-i18n="legAny">Some funds closed (click to see list)</span></span>
+    <span><i style="box-shadow:inset 0 0 0 1.5px #f5c518"></i><span data-i18n="today">Today</span></span>
+    <span id="hol-range"></span>
+  </div>
+  <div class="hol-layout">
+    <div class="hol-cal" id="hol-cal"></div>
+    <aside class="hol-panel" id="hol-panel"></aside>
+  </div>
 </div>
 
 <div id="toast"></div>
@@ -571,7 +827,7 @@ tbody tr.compare-row:hover { background: #fff6cc; }
 <div id="compare-bar">
   <span class="compare-bar-text" id="compare-bar-label"></span>
   <div class="compare-bar-actions">
-    <button class="compare-btn compare-btn-secondary" onclick="clearCompare()">Clear</button>
+    <button class="compare-btn compare-btn-secondary" onclick="clearCompare()" data-i18n="clear">Clear</button>
     <button class="compare-btn compare-btn-primary" id="compare-open-btn" onclick="toggleCompareMode()">Compare</button>
   </div>
 </div>
@@ -580,11 +836,11 @@ tbody tr.compare-row:hover { background: #fff6cc; }
 <div id="mom-backdrop" onclick="hideMomTip()"></div>
 <div id="mom-tip">
   <div class="tip-header" id="tip-header">
-    <span class="tip-tap-hint">tap outside to close</span>
+    <span class="tip-tap-hint" data-i18n="tapClose">tap outside to close</span>
     <span id="tip-stage"></span>
   </div>
   <div class="tip-actions" id="tip-actions"></div>
-  <div class="tip-disclaimer">เป็นเพียงข้อมูล Technical เบื้องต้นเท่านั้น<br>ท่านสามารถสอบถามนักวิเคราะห์หากต้องการข้อมูลเพิ่มเติม</div>
+  <div class="tip-disclaimer"><span data-i18n="techOnly">Basic technical information only.</span><br><span data-i18n="askAnalyst">Please contact an analyst for more details.</span></div>
 </div>
 
 <script>
@@ -593,35 +849,206 @@ function debounce(fn, wait) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
 }
 
-const MOMENTUM_ACTIONS = {
-  Rising: {
-    label: 'Rising Momentum', color: '#d97706', bg: '#f59e0b',
-    actions: [
-      { name: 'Follow Buy',   desc: 'ซื้อในระดับราคานี้ได้ทันที' },
-      { name: 'Accumulation', desc: 'ทยอยสะสมตามระดับราคา / แบ่งไม้เข้า' }
-    ]
+// ── Language (EN default / TH) ────────────────────────────────
+// Everything on screen is translated except fund codes and fund / master-fund names.
+let LANG = (() => { try { return localStorage.getItem('navLang') === 'th' ? 'th' : 'en'; } catch { return 'en'; } })();
+
+const I18N = {
+  en: {
+    title: 'NAV Performance Report', internal: '(Internal Use Only)',
+    source: 'Source: LSEG Refinitiv Data Platform', version: 'Version 2.0 Beta',
+    createdBy: 'Created by GBS Fund Research', funds: 'funds',
+    tabNav: 'NAV Report', tabHoliday: 'Fund Holiday Calendar',
+    searchFund: 'Search fund…', searchDots: 'Search…', momentumColon: 'Momentum:', all: 'All',
+    momStrong: 'Strong', momRising: 'Rising', momFading: 'Fading', momNeutral: 'Neutral',
+    clear: 'Clear', filter: 'Filter',
+    colRec: 'Recommended', colMon: 'Monthly Pick', colTop: 'Performance Top 1 Month',
+    selectCompare: 'Select to compare',
+    thFund: 'Fund Code', thType: 'Type', thStyle: 'Style', thCls: 'Classification', thNav: 'NAV / Price', thMom: 'Momentum',
+    techOnly: 'Basic technical information only.', askAnalyst: 'Please contact an analyst for more details.',
+    tapClose: 'tap outside to close', loading: 'Loading…',
+    maintTitle: "Sorry, we're updating the data", maintSub: "We'll be back shortly",
+    phTypes: 'All Types', phStyles: 'All Styles', phCls: 'All Classifications', phHL: 'All Highlights', phFH: 'All Fund Holiday',
+    nSelected: '{n} selected',
+    hlRec: '👍 Recommended', hlMon: '⭐ Monthly Pick',
+    fhToday: '🚫 Closed today ({d})', fhNext: '⚠️ Closed next business day ({d})',
+    fhWeek: '📅 Closed this week ({d})', fhNextWeek: '📅 Closed next week ({d})',
+    badgeToday: '⚠️ Closed today ({d})', badgeNext: '⚠️ Closed next business day ({d})',
+    badgeWeek: '⚠️ Closed this week ({d})', badgeNextWeek: '📅 Closed next week ({d})',
+    fhNote: '⚠️ Holiday data: {range}',
+    noResults: 'No results.', countFunds: '{n} funds', noData: 'No Data',
+    maxCompare: 'You can compare up to {n} funds', comparing: 'Comparing {n} funds',
+    nSelectedCompare: '{n} selected (max {max})', compareBtn: 'Compare', showAll: 'Show All Funds',
+    navPrice: 'Price', navUnit: 'NAV/Unit',
+    typeMF: 'Mutual Fund', typeETF: 'ETF', styleActive: 'Active', stylePassive: 'Passive',
+    momStrongFull: 'Strong Momentum', momRisingFull: 'Rising Momentum',
+    momFadingFull: 'Momentum Fading', momNeutralFull: 'Neutral Momentum',
+    holSearchPh: 'Search fund code, e.g. LHLONGEVITY', today: 'Today',
+    legFund: "Selected fund's holiday", legAny: 'Some funds closed (click to see list)',
+    holRange: 'Data covers {from} – {to} ({n} funds)', holNoData: 'No holiday data yet (upload Fund_data/Fundholiday.xlsx)',
+    holFundClosed: '{code} closed', holClosedCount: '{n} funds closed',
+    holTotal: '{n} holidays in total · {u} upcoming', holNoUpcoming: 'No upcoming holidays in the current data',
+    holPast: 'Past holidays ({n})', holSearchResult: 'Results for "{q}"', holPick: 'Pick a fund to see its holidays',
+    holNotFound: 'This fund is not in the holiday data',
+    holUpcomingTitle: 'Upcoming fund holidays', holHint: 'Type a fund code to see its holidays, or click a date to see which funds are closed',
+    holNoUpcomingAll: 'No upcoming holidays yet — update Fund_data/Fundholiday.xlsx',
+    holCountShort: '{n} funds', holClosedN: '{n} funds closed', holDayFilter: 'Filter fund codes…',
+    holNoneClosed: 'No funds closed on this day'
   },
-  Strong: {
-    label: 'Strong Momentum', color: '#00b050', bg: '#00b050',
-    actions: [
-      { name: 'Follow Buy', desc: 'ซื้อในระดับราคานี้ได้ทันที' },
-      { name: 'Buy on Dip', desc: 'ซื้อเมื่อราคาปรับตัวลดลงมา 5 - 10%' }
-    ]
-  },
-  Fading: {
-    label: 'Momentum Fading', color: '#c0392b', bg: '#e74c3c',
-    actions: [
-      { name: 'Take Profit', desc: 'ขายเพื่อทำกำไร' },
-      { name: 'Cut Loss / Reduce Position',   desc: 'ขายทันทีเพื่อจำกัดการขาดทุน' }
-    ]
-  },
-  Neutral: {
-    label: 'Neutral Momentum', color: '#6b7280', bg: '#9ca3af',
-    actions: [
-      { name: 'Accumulation',         desc: 'ทยอยสะสมตามระดับราคา / แบ่งไม้เข้า' },
-      { name: 'Wait and See / Hold',  desc: 'รอดูสถานการณ์ / ถือต่อ รอจังหวะที่เหมาะสม' }
-    ]
+  th: {
+    title: 'รายงานผลการดำเนินงาน NAV', internal: '(ใช้ภายในเท่านั้น)',
+    source: 'แหล่งข้อมูล: LSEG Refinitiv Data Platform', version: 'เวอร์ชัน 2.0 Beta',
+    createdBy: 'จัดทำโดย GBS Fund Research', funds: 'กองทุน',
+    tabNav: 'รายงาน NAV', tabHoliday: 'ปฏิทินวันหยุดกองทุน',
+    searchFund: 'ค้นหากองทุน…', searchDots: 'ค้นหา…', momentumColon: 'โมเมนตัม:', all: 'ทั้งหมด',
+    momStrong: 'แข็งแกร่ง', momRising: 'ขาขึ้น', momFading: 'อ่อนแรง', momNeutral: 'ทรงตัว',
+    clear: 'ล้าง', filter: 'ตัวกรอง',
+    colRec: 'กองทุนแนะนำ', colMon: 'กองทุนเด่นประจำเดือน', colTop: 'ผลตอบแทนสูงสุด 1 เดือน',
+    selectCompare: 'เลือกเพื่อเปรียบเทียบ',
+    thFund: 'รหัสกองทุน', thType: 'ประเภท', thStyle: 'สไตล์', thCls: 'กลุ่มกองทุน', thNav: 'NAV / ราคา', thMom: 'โมเมนตัม',
+    techOnly: 'เป็นเพียงข้อมูล Technical เบื้องต้นเท่านั้น', askAnalyst: 'ท่านสามารถสอบถามนักวิเคราะห์หากต้องการข้อมูลเพิ่มเติม',
+    tapClose: 'แตะด้านนอกเพื่อปิด', loading: 'กำลังโหลด…',
+    maintTitle: 'ขออภัย กำลังอยู่ระหว่างการ Update ข้อมูล', maintSub: 'โดยเราจะกลับมาในเร็ว ๆ นี้',
+    phTypes: 'ทุกประเภท', phStyles: 'ทุกสไตล์', phCls: 'ทุกกลุ่มกองทุน', phHL: 'ทุกไฮไลต์', phFH: 'วันหยุดกองทุนทั้งหมด',
+    nSelected: 'เลือก {n} รายการ',
+    hlRec: '👍 กองทุนแนะนำ', hlMon: '⭐ กองทุนเด่นประจำเดือน',
+    fhToday: '🚫 กองทุนที่หยุดในวันนี้ ({d})', fhNext: '⚠️ กองทุนที่หยุดในวันทำการถัดไป ({d})',
+    fhWeek: '📅 กองทุนที่หยุดในสัปดาห์นี้ ({d})', fhNextWeek: '📅 กองทุนที่หยุดในสัปดาห์หน้า ({d})',
+    badgeToday: '⚠️ กองทุนที่หยุดในวันนี้ ({d})', badgeNext: '⚠️ กองทุนนี้หยุดในวันทำการถัดไป ({d})',
+    badgeWeek: '⚠️ กองทุนที่หยุดในสัปดาห์นี้ ({d})', badgeNextWeek: '📅 กองทุนที่หยุดในสัปดาห์หน้า ({d})',
+    fhNote: '⚠️ ข้อมูลวันหยุด: {range}',
+    noResults: 'ไม่พบข้อมูล', countFunds: '{n} กองทุน', noData: 'ไม่มีข้อมูล',
+    maxCompare: 'เลือกเปรียบเทียบได้สูงสุด {n} กองทุน', comparing: 'กำลังเปรียบเทียบ {n} กองทุน',
+    nSelectedCompare: 'เลือกแล้ว {n} กองทุน (สูงสุด {max})', compareBtn: 'เปรียบเทียบ', showAll: 'แสดงทุกกองทุน',
+    navPrice: 'ราคา', navUnit: 'NAV/หน่วย',
+    typeMF: 'กองทุนรวม', typeETF: 'ETF', styleActive: 'เชิงรุก', stylePassive: 'เชิงรับ',
+    momStrongFull: 'โมเมนตัมแข็งแกร่ง', momRisingFull: 'โมเมนตัมขาขึ้น',
+    momFadingFull: 'โมเมนตัมอ่อนแรง', momNeutralFull: 'โมเมนตัมทรงตัว',
+    holSearchPh: 'ค้นหารหัสกองทุน เช่น LHLONGEVITY', today: 'วันนี้',
+    legFund: 'วันหยุดของกองทุนที่เลือก', legAny: 'มีกองทุนหยุด (คลิกเพื่อดูรายชื่อ)',
+    holRange: 'ข้อมูลครอบคลุม {from} – {to} ({n} กองทุน)', holNoData: 'ยังไม่มีข้อมูลวันหยุด (อัปโหลด Fund_data/Fundholiday.xlsx)',
+    holFundClosed: '{code} หยุด', holClosedCount: 'กองทุนหยุด {n} กอง',
+    holTotal: 'วันหยุดทั้งหมด {n} วัน · กำลังจะมาถึง {u} วัน', holNoUpcoming: 'ไม่มีวันหยุดที่กำลังจะมาถึงในข้อมูลปัจจุบัน',
+    holPast: 'วันหยุดที่ผ่านมา ({n})', holSearchResult: 'ผลการค้นหา "{q}"', holPick: 'เลือกกองทุนเพื่อดูวันหยุด',
+    holNotFound: 'ไม่พบกองทุนนี้ในข้อมูลวันหยุด',
+    holUpcomingTitle: 'วันหยุดกองทุนที่กำลังจะมาถึง', holHint: 'พิมพ์รหัสกองทุนเพื่อดูวันหยุด หรือคลิกวันที่บนปฏิทินเพื่อดูกองทุนที่หยุด',
+    holNoUpcomingAll: 'ยังไม่มีข้อมูลวันหยุดที่กำลังจะมาถึง — อัปเดตไฟล์ Fund_data/Fundholiday.xlsx',
+    holCountShort: '{n} กอง', holClosedN: 'กองทุนที่หยุด {n} กอง', holDayFilter: 'กรองรหัสกองทุน…',
+    holNoneClosed: 'ไม่มีกองทุนหยุดในวันนี้'
   }
+};
+
+// Classification names come from the Excel data in English; Thai labels for display only
+// (filtering still uses the original English value). Unknown values fall back to English.
+const CLS_TH = {
+  'AI': 'ปัญญาประดิษฐ์ (AI)',
+  'Agribusiness': 'ธุรกิจการเกษตร',
+  'Asia, Asia ex Japan Equity (Active Fund)': 'หุ้นเอเชีย / เอเชียไม่รวมญี่ปุ่น (เชิงรุก)',
+  'Asia, Emerging, China, Other Fixed Income (Active Fund)': 'ตราสารหนี้เอเชีย ตลาดเกิดใหม่ จีน และอื่น ๆ (เชิงรุก)',
+  'BRIC, BIC, LATAM (Active Fund)': 'หุ้น BRIC, BIC, ละตินอเมริกา (เชิงรุก)',
+  'Blockchain and Digital Assets': 'บล็อกเชนและสินทรัพย์ดิจิทัล',
+  'China Equity (Active Fund)': 'หุ้นจีน (เชิงรุก)',
+  'China Technology': 'เทคโนโลยีจีน',
+  'Clean Energy': 'พลังงานสะอาด',
+  'Cryptocurrency ***(UI)***': 'คริปโทเคอร์เรนซี ***(UI)***',
+  'Cybersecurity': 'ความปลอดภัยไซเบอร์',
+  'Defense': 'กลาโหม',
+  'EV': 'ยานยนต์ไฟฟ้า (EV)',
+  'Electrification and Smart Grid': 'ระบบไฟฟ้าและสมาร์ทกริด',
+  'Emerging Markets Equity (Active Fund)': 'หุ้นตลาดเกิดใหม่ (เชิงรุก)',
+  'Emerging Markets Equity (Passive Fund)': 'หุ้นตลาดเกิดใหม่ (เชิงรับ)',
+  'Energy': 'พลังงาน',
+  'Entertainment': 'ความบันเทิง',
+  'European Equity (Active Fund)': 'หุ้นยุโรป (เชิงรุก)',
+  'Financials': 'การเงิน',
+  'Foreign Property, REITs, Infrastructure (Active Fund)': 'อสังหาฯ REITs และโครงสร้างพื้นฐานต่างประเทศ (เชิงรุก)',
+  'Global Equity (Active Fund)': 'หุ้นโลก (เชิงรุก)',
+  'Global Fixed Income (Active Fund)': 'ตราสารหนี้โลก (เชิงรุก)',
+  'Gold': 'ทองคำ',
+  'Gold Miners, Silver Miners and Copper Miners': 'เหมืองทองคำ เงิน และทองแดง',
+  'Healthcare and Biotech': 'สุขภาพและเทคโนโลยีชีวภาพ',
+  'Hong Kong Equity': 'หุ้นฮ่องกง',
+  'India Equity (Active Fund)': 'หุ้นอินเดีย (เชิงรุก)',
+  'India Equity (Passive Fund)': 'หุ้นอินเดีย (เชิงรับ)',
+  'Japan Equity (Active Fund)': 'หุ้นญี่ปุ่น (เชิงรุก)',
+  'Japan Technology': 'เทคโนโลยีญี่ปุ่น',
+  'Korea Equity (Active Fund)': 'หุ้นเกาหลี (เชิงรุก)',
+  'Korea Equity (Passive Fund)': 'หุ้นเกาหลี (เชิงรับ)',
+  'Lifestyle': 'ไลฟ์สไตล์',
+  'Nuclear and Uranium': 'นิวเคลียร์และยูเรเนียม',
+  'Oil': 'น้ำมัน',
+  'Online Retail': 'ค้าปลีกออนไลน์',
+  'Quantum': 'ควอนตัม',
+  'Rare Earth': 'แร่หายาก',
+  'Resources': 'ทรัพยากร',
+  'Robotics': 'หุ่นยนต์',
+  'Semiconductor and Memory': 'เซมิคอนดักเตอร์และหน่วยความจำ',
+  'Space': 'อวกาศ',
+  'Taiwan Equity (Passive Fund)': 'หุ้นไต้หวัน (เชิงรับ)',
+  'Technology Equity (Active Fund)': 'หุ้นเทคโนโลยี (เชิงรุก)',
+  'U.S. Equity (Active Fund)': 'หุ้นสหรัฐฯ (เชิงรุก)',
+  'U.S. Fixed Income (Active Fund)': 'ตราสารหนี้สหรัฐฯ (เชิงรุก)',
+  'Vietnam Equity (Active Fund)': 'หุ้นเวียดนาม (เชิงรุก)'
+};
+
+function t(key, p = {}) {
+  const s = I18N[LANG][key] ?? I18N.en[key] ?? key;
+  return s.replace(/\{(\w+)\}/g, (_, k) => (p[k] ?? ''));
+}
+function trCls(c)   { return (LANG === 'th' && CLS_TH[c]) || c || ''; }
+function trType(c)  { return c === 'ETF' ? t('typeETF') : c === 'Mutual Fund' ? t('typeMF') : (c || ''); }
+function trStyle(s) { return s === 'Active' ? t('styleActive') : s === 'Passive' ? t('stylePassive') : (s || ''); }
+function trNavLbl(l){ return l === 'Price' ? t('navPrice') : l === 'NAV/Unit' ? t('navUnit') : (l || ''); }
+function trMom(m) {
+  const k = momKey(m);
+  return k ? t('mom' + k + 'Full') : (m || '');
+}
+// Dates always use the Gregorian year (no Buddhist Era), in the current language
+function dtf(opts) {
+  return new Intl.DateTimeFormat(LANG === 'th' ? 'th-TH' : 'en-GB', { calendar: 'gregory', numberingSystem: 'latn', ...opts });
+}
+
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));
+}
+
+function setLang(lang) {
+  if (lang === LANG) return;
+  LANG = lang;
+  try { localStorage.setItem('navLang', lang); } catch {}
+  applyI18n();
+  hideMomTip();
+  Object.values(ssHandles).forEach(h => h && h.relabel && h.relabel());
+  if (allFunds.length) {
+    setHeaderDate();
+    updateFhNotes();
+    render();
+    renderFeatureCards();
+    initHolidayData();
+  }
+  if (currentTab === 'holiday') renderHolidayCal();
+  updateCompareBar();
+  updateStickyOffset();
+}
+
+const ACT = {
+  followBuy:   { en: ['Follow Buy', 'Buy at the current price level'], th: ['ซื้อตาม', 'ซื้อในระดับราคานี้ได้ทันที'] },
+  accumulate:  { en: ['Accumulation', 'Accumulate gradually across price levels / split entries'], th: ['ทยอยสะสม', 'ทยอยสะสมตามระดับราคา / แบ่งไม้เข้า'] },
+  buyDip:      { en: ['Buy on Dip', 'Buy when the price pulls back 5 - 10%'], th: ['ซื้อเมื่อราคาย่อตัว', 'ซื้อเมื่อราคาปรับตัวลดลงมา 5 - 10%'] },
+  takeProfit:  { en: ['Take Profit', 'Sell to lock in profit'], th: ['ขายทำกำไร', 'ขายเพื่อทำกำไร'] },
+  cutLoss:     { en: ['Cut Loss / Reduce Position', 'Sell now to limit losses'], th: ['ตัดขาดทุน / ลดสัดส่วน', 'ขายทันทีเพื่อจำกัดการขาดทุน'] },
+  waitHold:    { en: ['Wait and See / Hold', 'Wait and see / keep holding for a better entry'], th: ['รอดูสถานการณ์ / ถือต่อ', 'รอดูสถานการณ์ / ถือต่อ รอจังหวะที่เหมาะสม'] }
+};
+const MOMENTUM_ACTIONS = {
+  Rising:  { label: 'Rising Momentum',  bg: '#f59e0b', actions: ['followBuy', 'accumulate'] },
+  Strong:  { label: 'Strong Momentum',  bg: '#00b050', actions: ['followBuy', 'buyDip'] },
+  Fading:  { label: 'Momentum Fading',  bg: '#e74c3c', actions: ['takeProfit', 'cutLoss'] },
+  Neutral: { label: 'Neutral Momentum', bg: '#9ca3af', actions: ['accumulate', 'waitHold'] }
 };
 
 function normCode(s) {
@@ -765,6 +1192,7 @@ function fmtThm(thm) {
 
 // ── Fund Holiday (loaded live from Fundholiday.xlsx — no code changes needed monthly) ──
 let FUND_HOLIDAYS = {};
+let HOL_BY_DATE = {};
 let HOLIDAY_TODAY_STR = '', HOLIDAY_NEXT_STR = '', HOLIDAY_WEEK_START_STR = '', HOLIDAY_WEEK_END_STR = '';
 let HOLIDAY_NEXTWEEK_START_STR = '', HOLIDAY_NEXTWEEK_END_STR = '';
 function ymd(d) {
@@ -799,8 +1227,7 @@ function addDays(d, n) {
 }
 function fmtHolidayDate(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-GB', { calendar: 'gregory', day: '2-digit', month: 'short', year: 'numeric' })
-    .format(new Date(Date.UTC(y, m - 1, d)));
+  return dtf({ day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
 }
 function fmtDateRange(startStr, endStr) {
   const [ys, ms] = startStr.split('-');
@@ -861,6 +1288,12 @@ async function loadFundHolidays() {
     });
     FUND_HOLIDAYS = map;
   } catch { FUND_HOLIDAYS = {}; /* Fundholiday.xlsx not uploaded yet — badges simply won't show */ }
+  // Reverse index for the calendar tab: date -> fund codes closed that day
+  HOL_BY_DATE = {};
+  for (const [code, dates] of Object.entries(FUND_HOLIDAYS)) {
+    FUND_HOLIDAYS[code] = [...new Set(dates)].sort();
+    FUND_HOLIDAYS[code].forEach(d => (HOL_BY_DATE[d] = HOL_BY_DATE[d] || []).push(code));
+  }
 }
 function getHolidayCaution(code) {
   if (!code) return null;
@@ -888,10 +1321,11 @@ function getHolidayCaution(code) {
 function fmtHoliday(flag) {
   if (!flag) return '';
   let out = '';
-  if (flag.today) out += `<span class="hl-badge holiday-badge">⚠️ กองทุนที่หยุดในวันนี้ (${fmtHolidayDate(HOLIDAY_TODAY_STR)})</span>`;
-  if (flag.next)  out += `<span class="hl-badge holiday-badge">⚠️ กองทุนนี้หยุดในวันทำการถัดไป (${fmtHolidayDate(HOLIDAY_NEXT_STR)})</span>`;
-  if (flag.week && flag.week.length) out += `<span class="hl-badge holiday-badge">⚠️ กองทุนที่หยุดในสัปดาห์นี้ (${fmtWeekDates(flag.week)})</span>`;
-  if (flag.nextWeek && flag.nextWeek.length) out += `<span class="hl-badge holiday-badge">📅 กองทุนที่หยุดในสัปดาห์หน้า (${fmtWeekDates(flag.nextWeek)})</span>`;
+  const b = (key, d) => `<span class="hl-badge holiday-badge">${t(key, { d })}</span>`;
+  if (flag.today) out += b('badgeToday', fmtHolidayDate(HOLIDAY_TODAY_STR));
+  if (flag.next)  out += b('badgeNext', fmtHolidayDate(HOLIDAY_NEXT_STR));
+  if (flag.week && flag.week.length) out += b('badgeWeek', fmtWeekDates(flag.week));
+  if (flag.nextWeek && flag.nextWeek.length) out += b('badgeNextWeek', fmtWeekDates(flag.nextWeek));
   return out;
 }
 
@@ -901,13 +1335,14 @@ function showMomTip(badgeEl, key) {
   const tip = document.getElementById('mom-tip');
   const backdrop = document.getElementById('mom-backdrop');
   document.getElementById('tip-header').style.background = data.bg;
-  document.getElementById('tip-stage').textContent = data.label;
-  document.getElementById('tip-actions').innerHTML = data.actions.map(a =>
-    `<div class="tip-action">
-      <div class="tip-action-name">${a.name}</div>
-      <div class="tip-action-desc">${a.desc}</div>
-    </div>`
-  ).join('');
+  document.getElementById('tip-stage').textContent = trMom(data.label);
+  document.getElementById('tip-actions').innerHTML = data.actions.map(k => {
+    const [name, desc] = ACT[k][LANG];
+    return `<div class="tip-action">
+      <div class="tip-action-name">${name}</div>
+      <div class="tip-action-desc">${desc}</div>
+    </div>`;
+  }).join('');
   tip.classList.add('show');
   backdrop.classList.add('show');
 
@@ -959,7 +1394,7 @@ function escAttr(s) {
 function toggleCompare(id, checked) {
   if (checked) {
     if (selectedIds.size >= MAX_COMPARE) {
-      showToast(`เลือกเปรียบเทียบได้สูงสุด ${MAX_COMPARE} กองทุน`);
+      showToast(t('maxCompare', { n: MAX_COMPARE }));
       render();
       return;
     }
@@ -979,12 +1414,12 @@ function updateCompareBar() {
   bar.classList.toggle('show', n > 0);
   bar.classList.toggle('mode', compareMode);
   if (compareMode) {
-    label.textContent = `Comparing ${n} fund${n === 1 ? '' : 's'}`;
-    btn.textContent = 'Show All Funds';
+    label.textContent = t('comparing', { n });
+    btn.textContent = t('showAll');
     btn.disabled = false;
   } else {
-    label.textContent = `${n} fund${n === 1 ? '' : 's'} selected (max ${MAX_COMPARE})`;
-    btn.textContent = 'Compare';
+    label.textContent = t('nSelectedCompare', { n, max: MAX_COMPARE });
+    btn.textContent = t('compareBtn');
     btn.disabled = n < 2;
   }
 }
@@ -1032,14 +1467,14 @@ function fmtPct(v, forCard) {
 }
 function fmtNav(v, lbl) {
   if (v==null) return '<span class="na">—</span>';
-  return `<span class="nav-val">${v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4})}</span><br><span class="nav-lbl">${lbl}</span>`;
+  return `<span class="nav-val">${v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4})}</span><br><span class="nav-lbl">${esc(trNavLbl(lbl))}</span>`;
 }
 function fmtDate(v) {
   if (!v) return '<span class="na">—</span>';
   try {
     const d = new Date(v);
     if (isNaN(d)) return v;
-    return new Intl.DateTimeFormat('en-GB', {calendar:'gregory', day:'2-digit', month:'short', year:'numeric'}).format(d);
+    return dtf({ day: '2-digit', month: 'short', year: 'numeric' }).format(d);
   } catch { return v; }
 }
 function esc(s) {
@@ -1068,77 +1503,20 @@ function momKey(m) {
 function fmtMom(m) {
   if (!m) return '<span class="na">—</span>';
   const key = momKey(m);
-  return `<span class="mom-badge ${momCls(m)}" data-mom="${key}">${esc(m)}</span>`;
+  return `<span class="mom-badge ${momCls(m)}" data-mom="${key}">${esc(trMom(m))}</span>`;
 }
 function fmtType(cat) {
   if (!cat) return '<span class="na">—</span>';
   const cls = cat === 'ETF' ? 'type-etf' : 'type-mf';
-  return `<span class="type-tag ${cls}">${esc(cat)}</span>`;
+  return `<span class="type-tag ${cls}">${esc(trType(cat))}</span>`;
 }
 function fmtStyle(style) {
-  if (!style) return '<span class="style-tag style-unknown">No Data</span>';
+  if (!style) return `<span class="style-tag style-unknown">${t('noData')}</span>`;
   const cls = style === 'Active' ? 'style-active' : 'style-passive';
-  return `<span class="style-tag ${cls}">${esc(style)}</span>`;
+  return `<span class="style-tag ${cls}">${esc(trStyle(style))}</span>`;
 }
 
 // ── Searchable Select ─────────────────────────────────────────
-function buildSS(inputId, ddId, searchId, listId, options, value, onSelect) {
-  const input  = document.getElementById(inputId);
-  const dd     = document.getElementById(ddId);
-  const search = document.getElementById(searchId);
-  const list   = document.getElementById(listId);
-
-  function renderOptions(filter) {
-    list.innerHTML = '';
-    // All option
-    const allOpt = document.createElement('div');
-    allOpt.className = 'ss-option' + (value === '' ? ' selected' : '');
-    allOpt.textContent = 'All';
-    allOpt.dataset.value = '';
-    allOpt.onclick = () => selectOpt('', 'All');
-    list.appendChild(allOpt);
-
-    options.filter(o => !filter || o.toLowerCase().includes(filter.toLowerCase()))
-      .forEach(o => {
-        const el = document.createElement('div');
-        el.className = 'ss-option' + (value === o ? ' selected' : '');
-        el.textContent = o;
-        el.dataset.value = o;
-        el.onclick = () => selectOpt(o, o);
-        list.appendChild(el);
-      });
-  }
-
-  function selectOpt(val, label) {
-    value = val;
-    input.value = val ? label : '';
-    input.placeholder = val ? '' : options[0] === undefined ? 'All' : 'All';
-    dd.classList.remove('open');
-    input.classList.remove('open');
-    onSelect(val);
-  }
-
-  input.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isOpen = dd.classList.contains('open');
-    document.querySelectorAll('.ss-dropdown').forEach(d => { d.classList.remove('open'); });
-    document.querySelectorAll('.ss-input').forEach(i => i.classList.remove('open'));
-    if (!isOpen) {
-      dd.classList.add('open');
-      input.classList.add('open');
-      search.value = '';
-      renderOptions('');
-      search.focus();
-    }
-  });
-
-  search.addEventListener('input', () => renderOptions(search.value));
-  search.addEventListener('click', e => e.stopPropagation());
-
-  renderOptions('');
-  return { setValue: (v) => { value = v; input.value = v || ''; renderOptions(''); } };
-}
-
 let ssHandles = {};
 
 function initSS(funds) {
@@ -1152,26 +1530,29 @@ function initSS(funds) {
   function onTypeChange(typeSet) { selType = typeSet; render(); }
   function onStyleChange(styleSet) { selStyle = styleSet; render(); }
 
-  const hlOptions = ['👍 Recommended', '⭐ Monthly Pick'];
-  const fhOptions = [
-    `🚫 กองทุนที่หยุดในวันนี้ (${fmtHolidayDate(HOLIDAY_TODAY_STR)})`,
-    `⚠️ กองทุนนี้หยุดในวันทำการถัดไป (${fmtHolidayDate(HOLIDAY_NEXT_STR)})`,
-    `📅 กองทุนที่หยุดในสัปดาห์นี้ (${fmtDateRange(HOLIDAY_WEEK_START_STR, HOLIDAY_WEEK_END_STR)})`,
-    `📅 กองทุนที่หยุดในสัปดาห์หน้า (${fmtDateRange(HOLIDAY_NEXTWEEK_START_STR, HOLIDAY_NEXTWEEK_END_STR)})`
-  ];
+  // Option values are stable keys; labels are looked up in the current language
+  const hlOptions = ['rec', 'mon'];
+  const hlLabel = k => t(k === 'rec' ? 'hlRec' : 'hlMon');
+  const fhOptions = ['today', 'next', 'week', 'nextweek'];
+  const fhLabel = k => ({
+    today:    () => t('fhToday', { d: fmtHolidayDate(HOLIDAY_TODAY_STR) }),
+    next:     () => t('fhNext', { d: fmtHolidayDate(HOLIDAY_NEXT_STR) }),
+    week:     () => t('fhWeek', { d: fmtDateRange(HOLIDAY_WEEK_START_STR, HOLIDAY_WEEK_END_STR) }),
+    nextweek: () => t('fhNextWeek', { d: fmtDateRange(HOLIDAY_NEXTWEEK_START_STR, HOLIDAY_NEXTWEEK_END_STR) })
+  })[k]();
 
-  function makeSS(inputId, ddId, searchId, listId, opts, onSel, iscat) {
+  function makeSS(inputId, ddId, searchId, listId, opts, onSel, phKey, labelOf = v => v) {
     let cur = new Set();
     const input  = document.getElementById(inputId);
     const dd     = document.getElementById(ddId);
     const search = document.getElementById(searchId);
     const list   = document.getElementById(listId);
-    const ph = iscat;
 
     function updateLabel() {
-      if (cur.size === 0) { input.value = ''; input.placeholder = ph; }
-      else if (cur.size === 1) { input.value = [...cur][0]; }
-      else { input.value = cur.size + ' selected'; }
+      input.placeholder = t(phKey);
+      if (cur.size === 0) { input.value = ''; }
+      else if (cur.size === 1) { input.value = labelOf([...cur][0]); }
+      else { input.value = t('nSelected', { n: cur.size }); }
     }
 
     function renderOpts(filter) {
@@ -1179,15 +1560,16 @@ function initSS(funds) {
       // "All" row (clears selection)
       const allEl = document.createElement('div');
       allEl.className = 'ss-option' + (cur.size === 0 ? ' selected' : '');
-      allEl.innerHTML = `<span class="ss-check">${cur.size === 0 ? '✓' : ''}</span>All`;
+      allEl.innerHTML = `<span class="ss-check">${cur.size === 0 ? '✓' : ''}</span>${t('all')}`;
       allEl.onclick = (e) => { e.stopPropagation(); cur.clear(); updateLabel(); renderOpts(search.value); onSel(cur); };
       list.appendChild(allEl);
 
-      opts.filter(o => !filter || o.toLowerCase().includes(filter.toLowerCase())).forEach(o => {
+      const f = (filter || '').toLowerCase();
+      opts.filter(o => !f || labelOf(o).toLowerCase().includes(f) || String(o).toLowerCase().includes(f)).forEach(o => {
         const on = cur.has(o);
         const el = document.createElement('div');
         el.className = 'ss-option' + (on ? ' selected' : '');
-        el.innerHTML = `<span class="ss-check">${on ? '✓' : ''}</span>${o}`;
+        el.innerHTML = `<span class="ss-check">${on ? '✓' : ''}</span>${esc(labelOf(o))}`;
         el.onclick = (e) => {
           e.stopPropagation();
           if (cur.has(o)) cur.delete(o); else cur.add(o);
@@ -1215,7 +1597,9 @@ function initSS(funds) {
     search.addEventListener('input', () => renderOpts(search.value));
     search.addEventListener('click', e => e.stopPropagation());
     renderOpts('');
+    updateLabel();
     return {
+      relabel: () => { updateLabel(); renderOpts(search.value); },
       rebuild: (newOpts) => {
         opts = newOpts;
         cur = new Set([...cur].filter(v => newOpts.includes(v)));
@@ -1226,16 +1610,16 @@ function initSS(funds) {
     };
   }
 
-  ssHandles.type = makeSS('ss-type-input', 'ss-type-dd', 'ss-type-search', 'ss-type-list', types, onTypeChange, 'All Types');
-  ssHandles.style = makeSS('ss-style-input', 'ss-style-dd', 'ss-style-search', 'ss-style-list', styles, onStyleChange, 'All Styles');
-  ssHandles.cls  = makeSS('ss-cls-input',  'ss-cls-dd',  'ss-cls-search',  'ss-cls-list',  classes, onClsChange, 'All Classifications');
-  ssHandles.hl   = makeSS('ss-hl-input',   'ss-hl-dd',   'ss-hl-search',   'ss-hl-list',   hlOptions,  onHLChange,  'All Highlights');
-  ssHandles.fh   = makeSS('ss-fh-input',   'ss-fh-dd',   'ss-fh-search',   'ss-fh-list',   fhOptions,  onFHChange,  'All Fund Holiday');
-  ssHandles.mtype = makeSS('ss-mtype-input', 'ss-mtype-dd', 'ss-mtype-search', 'ss-mtype-list', types, onTypeChange, 'All Types');
-  ssHandles.mstyle = makeSS('ss-mstyle-input', 'ss-mstyle-dd', 'ss-mstyle-search', 'ss-mstyle-list', styles, onStyleChange, 'All Styles');
-  ssHandles.mcls = makeSS('ss-mcls-input', 'ss-mcls-dd', 'ss-mcls-search', 'ss-mcls-list', classes, onClsChange, 'All Classifications');
-  ssHandles.mhl  = makeSS('ss-mhl-input',  'ss-mhl-dd',  'ss-mhl-search',  'ss-mhl-list',  hlOptions,  onHLChange,  'All Highlights');
-  ssHandles.mfh  = makeSS('ss-mfh-input',  'ss-mfh-dd',  'ss-mfh-search',  'ss-mfh-list',  fhOptions,  onFHChange,  'All Fund Holiday');
+  ssHandles.type   = makeSS('ss-type-input',   'ss-type-dd',   'ss-type-search',   'ss-type-list',   types,     onTypeChange,  'phTypes',  trType);
+  ssHandles.style  = makeSS('ss-style-input',  'ss-style-dd',  'ss-style-search',  'ss-style-list',  styles,    onStyleChange, 'phStyles', trStyle);
+  ssHandles.cls    = makeSS('ss-cls-input',    'ss-cls-dd',    'ss-cls-search',    'ss-cls-list',    classes,   onClsChange,   'phCls',    trCls);
+  ssHandles.hl     = makeSS('ss-hl-input',     'ss-hl-dd',     'ss-hl-search',     'ss-hl-list',     hlOptions, onHLChange,    'phHL',     hlLabel);
+  ssHandles.fh     = makeSS('ss-fh-input',     'ss-fh-dd',     'ss-fh-search',     'ss-fh-list',     fhOptions, onFHChange,    'phFH',     fhLabel);
+  ssHandles.mtype  = makeSS('ss-mtype-input',  'ss-mtype-dd',  'ss-mtype-search',  'ss-mtype-list',  types,     onTypeChange,  'phTypes',  trType);
+  ssHandles.mstyle = makeSS('ss-mstyle-input', 'ss-mstyle-dd', 'ss-mstyle-search', 'ss-mstyle-list', styles,    onStyleChange, 'phStyles', trStyle);
+  ssHandles.mcls   = makeSS('ss-mcls-input',   'ss-mcls-dd',   'ss-mcls-search',   'ss-mcls-list',   classes,   onClsChange,   'phCls',    trCls);
+  ssHandles.mhl    = makeSS('ss-mhl-input',    'ss-mhl-dd',    'ss-mhl-search',    'ss-mhl-list',    hlOptions, onHLChange,    'phHL',     hlLabel);
+  ssHandles.mfh    = makeSS('ss-mfh-input',    'ss-mfh-dd',    'ss-mfh-search',    'ss-mfh-list',    fhOptions, onFHChange,    'phFH',     fhLabel);
 
   if (!listenersOk) {
     document.getElementById('search').addEventListener('input', debounce(render, 120));
@@ -1313,6 +1697,9 @@ function render() {
   const hasFilter = selCls.size || selMom.size || selHL.size || selFH.size || selType.size || selStyle.size || document.getElementById('search').value.trim();
   const btn = document.getElementById('clear-btn');
   if (btn) btn.style.display = hasFilter ? '' : 'none';
+  // Featured cards are the "home" view — hide them while searching/filtering/comparing
+  // so the matching rows sit right under the search bar.
+  document.getElementById('feat-section').hidden = !!(hasFilter || compareMode);
 
   filtered = allFunds.filter(f => {
     if (compareMode) return selectedIds.has(f.id);
@@ -1324,19 +1711,16 @@ function render() {
     if (selCls.size > 0 && !selCls.has(f.classification)) return false;
     if (selMom.size > 0 && !selMom.has(momKey(f.momentum))) return false;
     if (selHL.size > 0) {
-      const ok = (selHL.has('👍 Recommended') && f.recommend) || (selHL.has('⭐ Monthly Pick') && f.monthly);
+      const ok = (selHL.has('rec') && f.recommend) || (selHL.has('mon') && f.monthly);
       if (!ok) return false;
     }
     if (selFH.size > 0) {
-      const wantToday = [...selFH].some(v => v.startsWith('🚫 กองทุนที่หยุดในวันนี้'));
-      const wantNext = [...selFH].some(v => v.startsWith('⚠️ กองทุนนี้หยุดในวันทำการถัดไป'));
-      const wantWeek = [...selFH].some(v => v.startsWith('📅 กองทุนที่หยุดในสัปดาห์นี้'));
-      const wantNextWeek = [...selFH].some(v => v.startsWith('📅 กองทุนที่หยุดในสัปดาห์หน้า'));
-      const ok = (wantToday && f.holiday?.today) || (wantNext && f.holiday?.next) || (wantWeek && f.holiday?.week?.length > 0) || (wantNextWeek && f.holiday?.nextWeek?.length > 0);
+      const ok = (selFH.has('today') && f.holiday?.today) || (selFH.has('next') && f.holiday?.next) ||
+                 (selFH.has('week') && f.holiday?.week?.length > 0) || (selFH.has('nextweek') && f.holiday?.nextWeek?.length > 0);
       if (!ok) return false;
     }
     if (q) {
-      const hay = `${f.mutual_fund||''} ${f.fund_name||''} ${f.classification||''}`.toLowerCase();
+      const hay = `${f.mutual_fund||''} ${f.fund_name||''} ${f.classification||''} ${trCls(f.classification)}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -1372,7 +1756,7 @@ function render() {
     });
   }
 
-  document.getElementById('count-pill').textContent = `${filtered.length} funds`;
+  document.getElementById('count-pill').textContent = t('countFunds', { n: filtered.length });
   // Only build the view actually on screen (desktop table vs mobile cards) — building
   // both on every keystroke/selection was doubling the work for no visible benefit.
   if (isMobileView()) { renderCards(); } else { renderTable(); }
@@ -1385,16 +1769,16 @@ function isMobileView() {
 
 function renderTable() {
   const tbody = document.getElementById('tbl-body');
-  if (!filtered.length) { tbody.innerHTML = `<tr class="state-row"><td colspan="12">No results.</td></tr>`; return; }
+  if (!filtered.length) { tbody.innerHTML = `<tr class="state-row"><td colspan="12">${t('noResults')}</td></tr>`; return; }
   let html = '', lastCat = null;
   filtered.forEach(f => {
     if (!sortCol && !prioritySorted && f.category !== lastCat) {
       lastCat = f.category;
-      html += `<tr class="group-hd"><td colspan="12">▸ ${esc(f.category)}</td></tr>`;
+      html += `<tr class="group-hd"><td colspan="12">▸ ${esc(trType(f.category))}</td></tr>`;
     }
     const fn = f.fund_name ? `<div class="fund-name" title="${esc(f.fund_name)}">${esc(f.fund_name)}</div>` : '';
     const dateLine = f.latest_date ? `<div class="fund-date">${fmtDate(f.latest_date)}</div>` : '';
-    const hlLine = (f.recommend || f.monthly || f.holiday) ? `<div>${f.recommend ? '<span class="hl-badge rec-badge">👍 Recommended</span>' : ''}${f.monthly ? '<span class="hl-badge mon-badge">⭐ Monthly Pick</span>' : ''}${fmtHoliday(f.holiday)}</div>` : '';
+    const hlLine = (f.recommend || f.monthly || f.holiday) ? `<div>${f.recommend ? `<span class="hl-badge rec-badge">${t('hlRec')}</span>` : ''}${f.monthly ? `<span class="hl-badge mon-badge">${t('hlMon')}</span>` : ''}${fmtHoliday(f.holiday)}</div>` : '';
     const isSel = selectedIds.has(f.id);
     const chk = isSel ? 'checked' : '';
     html += `<tr${isSel ? ' class="compare-row"' : ''}>
@@ -1402,7 +1786,7 @@ function renderTable() {
       <td><div class="fund-code">${esc(f.mutual_fund)}</div>${dateLine}${hlLine}${fn}</td>
       <td>${fmtType(f.category)}</td>
       <td>${fmtStyle(f.style)}</td>
-      <td><span class="cls-tag" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span></td>
+      <td><span class="cls-tag" title="${esc(trCls(f.classification))}">${esc(trCls(f.classification))||'—'}</span></td>
       <td class="num">${fmtNav(f.nav, f.nav_label)}</td>
       <td class="num">${fmtPct(f.pct1d,false)}</td>
       <td class="num">${fmtPct(f.pct1w,false)}</td>
@@ -1417,14 +1801,14 @@ function renderTable() {
 
 function renderCards() {
   const grid = document.getElementById('card-grid');
-  if (!filtered.length) { grid.innerHTML = `<div class="state-msg">No results.</div>`; return; }
+  if (!filtered.length) { grid.innerHTML = `<div class="state-msg">${t('noResults')}</div>`; return; }
   let html = '', lastCat = null;
   filtered.forEach(f => {
-    if (f.category !== lastCat) { lastCat = f.category; html += `<div class="cat-label">▸ ${esc(f.category)}</div>`; }
+    if (f.category !== lastCat) { lastCat = f.category; html += `<div class="cat-label">▸ ${esc(trType(f.category))}</div>`; }
     const navStr = f.nav != null ? f.nav.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4}) : '—';
     const fn = f.fund_name ? `<div class="card-fn">${esc(f.fund_name)}</div>` : '';
     const momHtml = f.momentum ? `<div style="margin-top:6px">${fmtMom(f.momentum)}</div>` : '';
-    const hlHtml = (f.recommend || f.monthly || f.holiday) ? `<div style="margin-top:4px">${f.recommend ? '<span class="hl-badge rec-badge">👍 Recommended</span>' : ''}${f.monthly ? '<span class="hl-badge mon-badge">⭐ Monthly Pick</span>' : ''}${fmtHoliday(f.holiday)}</div>` : '';
+    const hlHtml = (f.recommend || f.monthly || f.holiday) ? `<div style="margin-top:4px">${f.recommend ? `<span class="hl-badge rec-badge">${t('hlRec')}</span>` : ''}${f.monthly ? `<span class="hl-badge mon-badge">${t('hlMon')}</span>` : ''}${fmtHoliday(f.holiday)}</div>` : '';
     const isSel = selectedIds.has(f.id);
     const chk = isSel ? 'checked' : '';
     html += `<div class="card${isSel ? ' compare-row' : ''}">
@@ -1439,11 +1823,11 @@ function renderCards() {
         <div class="card-head-right">
           ${fmtType(f.category)}
           ${fmtStyle(f.style)}
-          <span class="card-cls" title="${esc(f.classification)}">${esc(f.classification)||'—'}</span>
+          <span class="card-cls" title="${esc(trCls(f.classification))}">${esc(trCls(f.classification))||'—'}</span>
         </div>
       </div>
       <div class="card-nav-row">
-        <div><div class="card-nav-val">${navStr}</div><div class="card-nav-lbl">${esc(f.nav_label)}</div></div>
+        <div><div class="card-nav-val">${navStr}</div><div class="card-nav-lbl">${esc(trNavLbl(f.nav_label))}</div></div>
         <div class="card-date">${fmtDate(f.latest_date)}</div>
       </div>
       <div class="card-perf">
@@ -1470,6 +1854,21 @@ function clearFilters() {
 }
 
 // ── Load data ─────────────────────────────────────────────────
+let DATA_UPDATED = '';
+// Data "updated" date in the header — Gregorian year in both languages
+function setHeaderDate() {
+  const el = document.getElementById('upd-date');
+  if (!DATA_UPDATED) return;
+  const d = new Date(DATA_UPDATED);
+  el.textContent = isNaN(d) ? DATA_UPDATED : dtf({ day: '2-digit', month: 'short', year: 'numeric' }).format(d);
+}
+// Coverage note shown at the top of the Fund Holiday filter dropdowns
+function updateFhNotes() {
+  const dates = Object.keys(HOL_BY_DATE).sort();
+  const text = dates.length ? t('fhNote', { range: `${fmtHolidayDate(dates[0])} – ${fmtHolidayDate(dates[dates.length - 1])}` }) : '';
+  document.querySelectorAll('.fh-note').forEach(n => { n.textContent = text; n.hidden = !text; });
+}
+
 async function load() {
   try {
     let data;
@@ -1496,36 +1895,329 @@ async function load() {
     }));
 
     document.getElementById('total-funds').textContent = allFunds.length;
-    // Show data updated date in Gregorian (force gregory calendar to avoid Thai Buddhist Era)
-    if (data.updated) {
-      try {
-        const d = new Date(data.updated);
-        if (!isNaN(d)) {
-          document.getElementById('upd-date').textContent = new Intl.DateTimeFormat('en-GB', {
-            calendar: 'gregory', day: '2-digit', month: 'short', year: 'numeric'
-          }).format(d);
-        } else {
-          document.getElementById('upd-date').textContent = data.updated;
-        }
-      } catch { document.getElementById('upd-date').textContent = data.updated; }
-    }
+    DATA_UPDATED = data.updated || '';
+    setHeaderDate();
+    updateFhNotes();
 
     initSS(allFunds);
     render();
+    renderFeatureCards();
+    initHolidayData();
+    if (currentTab === 'holiday') renderHolidayCal();
 
   } catch (e) {
     document.getElementById('maintenance-overlay').style.display = 'flex';
   }
 }
 
-load();
+// ── Tabs ──────────────────────────────────────────────────────
+let currentTab = 'nav';
+function switchTab(tab) {
+  if (tab !== 'nav' && tab !== 'holiday') tab = 'nav';
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on);
+  });
+  document.getElementById('tab-nav').hidden = tab !== 'nav';
+  document.getElementById('tab-holiday').hidden = tab !== 'holiday';
+  document.body.classList.toggle('on-holiday-tab', tab === 'holiday');
+  history.replaceState(null, '', tab === 'holiday' ? '#holiday' : location.pathname + location.search);
+  if (tab === 'holiday') {
+    renderHolidayCal();
+  } else {
+    updateStickyOffset();
+    if (allFunds.length) render();
+  }
+  window.scrollTo(0, 0);
+}
 
-// ── Sticky table header offset (header + filterbar height can vary by content/font) ──
+// Jump from a featured card to that fund in the main list (the featured section
+// hides while a search is active, so the matching row lands right under the search bar)
+function focusFund(code) {
+  if (currentTab !== 'nav') switchTab('nav');
+  document.getElementById('search').value = code;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Featured cards: Recommended | Monthly Pick | Top 1 Month ──
+function featCard(f, kind, rank) {
+  const navStr = f.nav != null ? f.nav.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—';
+  return `<div class="feat-card ${kind}" role="button" tabindex="0" data-focus="${escAttr(f.mutual_fund)}">
+    ${rank ? `<span class="feat-rank${rank <= 3 ? ' gold' : ''}">#${rank}</span>` : ''}
+    <div class="feat-code" title="${escAttr(f.mutual_fund)}">${esc(f.mutual_fund)}</div>
+    <div class="feat-name" title="${escAttr(f.fund_name || '')}">${esc(f.fund_name) || '&nbsp;'}</div>
+    <div class="feat-tags">${fmtType(f.category)}${fmtStyle(f.style)}</div>
+    <div class="feat-nav-row">
+      <div><span class="feat-nav-val">${navStr}</span> <span class="feat-nav-lbl">${esc(trNavLbl(f.nav_label))}</span></div>
+      <span class="feat-nav-lbl">${fmtDate(f.latest_date)}</span>
+    </div>
+    <div class="feat-perf">
+      <div class="card-pct"><span class="card-pct-label">1D</span>${fmtPct(f.pct1d, true)}</div>
+      <div class="card-pct"><span class="card-pct-label">1M</span>${fmtPct(f.pct1m, true)}</div>
+      <div class="card-pct"><span class="card-pct-label">1Y</span>${fmtPct(f.pct1y, true)}</div>
+    </div>
+    ${f.momentum ? fmtMom(f.momentum) : ''}
+  </div>`;
+}
+
+const FEAT_ROWS = ['feat-rec', 'feat-mon', 'feat-top'];
+function renderFeatureCards() {
+  const byCode = (a, b) => (a.mutual_fund || '').localeCompare(b.mutual_fund || '');
+  const fill = (id, list, kind, ranked) => {
+    document.getElementById(id + '-group').hidden = !list.length;
+    document.getElementById(id + '-count').textContent = `(${list.length})`;
+    const row = document.getElementById(id);
+    row.innerHTML = list.map((f, i) => featCard(f, kind, ranked ? i + 1 : 0)).join('');
+    row.scrollLeft = 0;
+    updateFeatPos(id);
+  };
+  fill('feat-rec', allFunds.filter(f => f.recommend).sort(byCode), 'rec');
+  fill('feat-mon', allFunds.filter(f => f.monthly).sort(byCode), 'mon');
+  fill('feat-top', allFunds.filter(f => f.pct1m != null).sort((a, b) => b.pct1m - a.pct1m).slice(0, 10), 'top', true);
+}
+
+function featStep(row) {
+  const card = row.firstElementChild;
+  return card ? card.offsetWidth + 10 : row.clientWidth; // 10 = .feat-row gap
+}
+// "3 / 15" position counter next to the arrows
+function updateFeatPos(id) {
+  const row = document.getElementById(id);
+  const n = row.children.length;
+  const idx = n ? Math.min(n, Math.round(row.scrollLeft / featStep(row)) + 1) : 0;
+  document.getElementById(id + '-pos').textContent = n > 1 ? `${idx} / ${n}` : '';
+}
+function scrollFeat(id, dir) {
+  const row = document.getElementById(id);
+  const max = row.scrollWidth - row.clientWidth;
+  if (dir > 0 && row.scrollLeft >= max - 2) row.scrollTo({ left: 0, behavior: 'smooth' });          // wrap to first
+  else if (dir < 0 && row.scrollLeft <= 2) row.scrollTo({ left: max, behavior: 'smooth' });         // wrap to last
+  else row.scrollBy({ left: dir * featStep(row), behavior: 'smooth' });
+}
+
+// ── Fund Holiday calendar tab ────────────────────────────────
+const CAL_MONTHS = {
+  en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  th: ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+};
+const CAL_WEEKDAYS = {
+  en: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+  th: ['อา','จ','อ','พ','พฤ','ศ','ส']
+};
+let holYear = new Date().getFullYear(), holFund = null, holDay = null;
+
+function holKey(s) {
+  return String(s || '').replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase();
+}
+function fmtHolLong(ds) {
+  const [y, m, d] = ds.split('-').map(Number);
+  return dtf({ weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function initHolidayData() {
+  const codes = Object.keys(FUND_HOLIDAYS).sort();
+  document.getElementById('hol-fund-list').innerHTML = codes.map(c => `<option value="${escAttr(c)}">`).join('');
+  const dates = Object.keys(HOL_BY_DATE).sort();
+  document.getElementById('hol-range').textContent = dates.length
+    ? t('holRange', { from: fmtHolidayDate(dates[0]), to: fmtHolidayDate(dates[dates.length - 1]), n: codes.length })
+    : t('holNoData');
+}
+
+function renderHolidayCal() {
+  document.getElementById('hol-year').textContent = holYear;
+  const today = ymd(new Date());
+  const fundDates = holFund ? new Set(FUND_HOLIDAYS[holFund] || []) : null;
+  const pad = n => String(n).padStart(2, '0');
+  let html = '';
+  for (let m = 0; m < 12; m++) {
+    const lead = new Date(holYear, m, 1).getDay();
+    const days = new Date(holYear, m + 1, 0).getDate();
+    let cells = '', monthHasFundHol = false;
+    for (let i = 0; i < lead; i++) cells += '<span class="hol-day empty"></span>';
+    for (let d = 1; d <= days; d++) {
+      const ds = `${holYear}-${pad(m + 1)}-${pad(d)}`;
+      const dow = (lead + d - 1) % 7;
+      const cls = ['hol-day'];
+      let title = '';
+      if (ds < today) cls.push('past');
+      if (dow === 0 || dow === 6) cls.push('weekend');
+      if (ds === today) cls.push('today');
+      if (ds === holDay) cls.push('picked');
+      if (fundDates) {
+        if (fundDates.has(ds)) { cls.push('is-hol'); title = t('holFundClosed', { code: holFund }); monthHasFundHol = true; }
+      } else if (HOL_BY_DATE[ds]) {
+        cls.push('has-hol'); title = t('holClosedCount', { n: HOL_BY_DATE[ds].length });
+      }
+      cells += `<button type="button" class="${cls.join(' ')}" data-date="${ds}"${title ? ` title="${escAttr(title)}"` : ''}>${d}</button>`;
+    }
+    html += `<div class="hol-month${monthHasFundHol ? ' has-fund-hol' : ''}" data-m="${m}">
+      <div class="hol-month-title">${CAL_MONTHS[LANG][m]} ${holYear}</div>
+      <div class="hol-grid">${CAL_WEEKDAYS[LANG].map(w => `<span class="hol-wd">${w}</span>`).join('')}${cells}</div>
+    </div>`;
+  }
+  document.getElementById('hol-cal').innerHTML = html;
+  renderHolPanel();
+}
+
+function renderHolPanel() {
+  const today = ymd(new Date());
+  const q = holKey(document.getElementById('hol-search').value);
+  let html = '';
+  if (holFund) {
+    const list = FUND_HOLIDAYS[holFund] || [];
+    const upcoming = list.filter(d => d >= today), past = list.filter(d => d < today).reverse();
+    const li = d => `<li><button type="button" data-jump="${d}">${fmtHolLong(d)}</button></li>`;
+    html += `<div class="hol-card">
+      <div class="hol-card-title">📌 ${esc(holFund)}</div>
+      <div class="hol-card-sub">${t('holTotal', { n: list.length, u: upcoming.length })}</div>
+      <ul class="hol-list">${upcoming.map(li).join('') || `<li class="hol-empty">${t('holNoUpcoming')}</li>`}</ul>
+      ${past.length ? `<details><summary>${t('holPast', { n: past.length })}</summary><ul class="hol-list past">${past.map(li).join('')}</ul></details>` : ''}
+    </div>`;
+  } else if (q) {
+    const matches = Object.keys(FUND_HOLIDAYS).filter(k => k.includes(q)).sort().slice(0, 40);
+    html += `<div class="hol-card">
+      <div class="hol-card-title">${esc(t('holSearchResult', { q }))}</div>
+      <div class="hol-card-sub">${matches.length ? t('holPick') : ''}</div>
+      ${matches.length
+        ? `<div class="hol-chips">${matches.map(c => `<button type="button" class="hol-chip" data-fund="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>`
+        : `<div class="hol-empty">${t('holNotFound')}</div>`}
+    </div>`;
+  } else {
+    const dates = Object.keys(HOL_BY_DATE).filter(d => d >= today).sort().slice(0, 10);
+    html += `<div class="hol-card">
+      <div class="hol-card-title">${t('holUpcomingTitle')}</div>
+      <div class="hol-card-sub">${t('holHint')}</div>
+      ${dates.length
+        ? `<ul class="hol-list">${dates.map(d => `<li><button type="button" data-jump="${d}"><span>${fmtHolLong(d)}</span><span class="hol-count">${t('holCountShort', { n: HOL_BY_DATE[d].length })}</span></button></li>`).join('')}</ul>`
+        : `<div class="hol-empty">${t('holNoUpcomingAll')}</div>`}
+    </div>`;
+  }
+  if (holDay) {
+    const funds = (HOL_BY_DATE[holDay] || []).slice().sort();
+    html += `<div class="hol-card">
+      <div class="hol-card-title">📅 ${fmtHolLong(holDay)}</div>
+      <div class="hol-card-sub">${t('holClosedN', { n: funds.length })}</div>
+      ${funds.length
+        ? `${funds.length > 12 ? `<input class="hol-day-filter" placeholder="${escAttr(t('holDayFilter'))}" autocomplete="off">` : ''}
+           <div class="hol-chips">${funds.map(c => `<button type="button" class="hol-chip${c === holFund ? ' on' : ''}" data-fund="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>`
+        : `<div class="hol-empty">${t('holNoneClosed')}</div>`}
+    </div>`;
+  }
+  document.getElementById('hol-panel').innerHTML = html;
+}
+
+function selectHolFund(code) {
+  holFund = code;
+  holDay = null;
+  document.getElementById('hol-search').value = code;
+  document.getElementById('hol-clear').hidden = false;
+  // If this fund has nothing in the year on screen, jump to the year of its next (or latest) holiday
+  const list = FUND_HOLIDAYS[code] || [];
+  if (list.length && !list.some(d => d.startsWith(holYear + '-'))) {
+    const today = ymd(new Date());
+    holYear = Number((list.find(d => d >= today) || list[list.length - 1]).slice(0, 4));
+  }
+  renderHolidayCal();
+  const first = list.find(d => d.startsWith(holYear + '-'));
+  if (first) scrollToHolMonth(Number(first.slice(5, 7)) - 1);
+}
+
+function scrollToHolMonth(m) {
+  const el = document.querySelector(`.hol-month[data-m="${m}"]`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function jumpToHolDay(ds) {
+  holDay = ds;
+  holYear = Number(ds.slice(0, 4));
+  renderHolidayCal();
+  scrollToHolMonth(Number(ds.slice(5, 7)) - 1);
+}
+
+function clearHolSearch() {
+  document.getElementById('hol-search').value = '';
+  document.getElementById('hol-clear').hidden = true;
+  holFund = null;
+  renderHolidayCal();
+}
+function changeHolYear(delta) { holYear += delta; renderHolidayCal(); }
+function goHolToday() {
+  holYear = new Date().getFullYear();
+  renderHolidayCal();
+  scrollToHolMonth(new Date().getMonth());
+}
+
+// One-time listeners for the featured cards and calendar (all use delegation)
+(function setupFeatureUI() {
+  FEAT_ROWS.forEach(id => {
+    const row = document.getElementById(id);
+    let raf = 0;
+    row.addEventListener('scroll', () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => updateFeatPos(id));
+    }, { passive: true });
+  });
+  window.addEventListener('resize', debounce(() => FEAT_ROWS.forEach(updateFeatPos), 150));
+  const feat = document.getElementById('feat-section');
+  feat.addEventListener('click', e => {
+    if (e.target.closest('.mom-badge')) return; // badge opens the momentum tip instead
+    const c = e.target.closest('[data-focus]');
+    if (c) focusFund(c.dataset.focus);
+  });
+  feat.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const c = e.target.closest('[data-focus]');
+    if (c) { e.preventDefault(); focusFund(c.dataset.focus); }
+  });
+
+  const search = document.getElementById('hol-search');
+  search.addEventListener('input', debounce(() => {
+    const k = holKey(search.value);
+    document.getElementById('hol-clear').hidden = !search.value;
+    if (k && FUND_HOLIDAYS[k]) { if (k !== holFund) selectHolFund(k); return; }
+    holFund = null;
+    renderHolidayCal();
+  }, 150));
+
+  document.getElementById('hol-cal').addEventListener('click', e => {
+    const day = e.target.closest('[data-date]');
+    if (!day) return;
+    holDay = holDay === day.dataset.date ? null : day.dataset.date;
+    renderHolidayCal();
+  });
+
+  const panel = document.getElementById('hol-panel');
+  panel.addEventListener('click', e => {
+    const f = e.target.closest('[data-fund]');
+    if (f) { selectHolFund(f.dataset.fund); return; }
+    const j = e.target.closest('[data-jump]');
+    if (j) jumpToHolDay(j.dataset.jump);
+  });
+  // Filter the long "funds closed on this day" chip list in place (no re-render, keeps focus)
+  panel.addEventListener('input', e => {
+    if (!e.target.classList.contains('hol-day-filter')) return;
+    const q = holKey(e.target.value);
+    e.target.nextElementSibling.querySelectorAll('.hol-chip').forEach(c => {
+      c.hidden = !!q && !c.dataset.fund.includes(q);
+    });
+  });
+})();
+
+applyI18n();
+load();
+if (location.hash === '#holiday') switchTab('holiday');
+
+// ── Sticky table header offset (header + tabs + filterbar height can vary by content/font) ──
 function updateStickyOffset() {
   const header = document.querySelector('header');
+  const tabbar = document.querySelector('.tabbar');
   const filterbar = document.querySelector('.filterbar');
   if (!header || !filterbar) return;
-  document.documentElement.style.setProperty('--sticky-offset', (header.offsetHeight + filterbar.offsetHeight) + 'px');
+  if (!filterbar.offsetHeight) return; // NAV tab hidden — keep the last good value
+  document.documentElement.style.setProperty('--sticky-offset', (header.offsetHeight + (tabbar ? tabbar.offsetHeight : 0) + filterbar.offsetHeight) + 'px');
 }
 updateStickyOffset();
 window.addEventListener('resize', updateStickyOffset);
