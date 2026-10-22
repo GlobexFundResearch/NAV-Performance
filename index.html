@@ -506,7 +506,7 @@ body.on-holiday-tab #compare-bar { display: none; }
   display: flex; flex-direction: column; gap: 12px;
   max-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 24px); overflow: auto;
 }
-.hol-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+.hol-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; scroll-margin-top: calc(var(--header-h) + var(--tabbar-h) + 10px); }
 .hol-card-title { font-weight: 700; color: var(--primary); font-size: 14px; word-break: break-word; }
 .hol-card-sub { font-size: 11px; color: var(--muted); margin: 2px 0 8px; }
 .hol-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
@@ -583,7 +583,7 @@ body.on-holiday-tab #compare-bar { display: none; }
     <div class="h-sub" data-i18n="source">Source: LSEG Refinitiv Data Platform</div>
   </div>
   <div class="h-right">
-    <div style="font-size:12px;font-weight:600" data-i18n="version">Version 2.0 Beta</div>
+    <div style="font-size:12px;font-weight:600" data-i18n="version">Version 3.0 Beta</div>
     <div style="font-size:10px;opacity:.7;margin-top:2px" data-i18n="createdBy">Created by GBS Fund Research</div>
     <div style="font-size:10px;opacity:.7;margin-top:2px"><span id="total-funds">—</span> <span data-i18n="funds">funds</span> · <span id="upd-date">—</span></div>
   </div>
@@ -856,7 +856,7 @@ let LANG = (() => { try { return localStorage.getItem('navLang') === 'th' ? 'th'
 const I18N = {
   en: {
     title: 'NAV Performance Report', internal: '(Internal Use Only)',
-    source: 'Source: LSEG Refinitiv Data Platform', version: 'Version 2.0 Beta',
+    source: 'Source: LSEG Refinitiv Data Platform', version: 'Version 3.0 Beta',
     createdBy: 'Created by GBS Fund Research', funds: 'funds',
     tabNav: 'NAV Report', tabHoliday: 'Fund Holiday Calendar',
     searchFund: 'Search fund…', searchDots: 'Search…', momentumColon: 'Momentum:', all: 'All',
@@ -897,7 +897,7 @@ const I18N = {
   },
   th: {
     title: 'รายงานผลการดำเนินงาน NAV', internal: '(ใช้ภายในเท่านั้น)',
-    source: 'แหล่งข้อมูล: LSEG Refinitiv Data Platform', version: 'เวอร์ชัน 2.0 Beta',
+    source: 'แหล่งข้อมูล: LSEG Refinitiv Data Platform', version: 'เวอร์ชัน 3.0 Beta',
     createdBy: 'จัดทำโดย GBS Fund Research', funds: 'กองทุน',
     tabNav: 'รายงาน NAV', tabHoliday: 'ปฏิทินวันหยุดกองทุน',
     searchFund: 'ค้นหากองทุน…', searchDots: 'ค้นหา…', momentumColon: 'โมเมนตัม:', all: 'ทั้งหมด',
@@ -2097,7 +2097,7 @@ function renderHolPanel() {
   }
   if (holDay) {
     const funds = (HOL_BY_DATE[holDay] || []).slice().sort();
-    html += `<div class="hol-card">
+    html += `<div class="hol-card" id="hol-day-card">
       <div class="hol-card-title">📅 ${fmtHolLong(holDay)}</div>
       <div class="hol-card-sub">${t('holClosedN', { n: funds.length })}</div>
       ${funds.length
@@ -2130,11 +2130,23 @@ function scrollToHolMonth(m) {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
+// Stacked layout (mobile/tablet): the panel sits above the calendar
+function holStacked() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+// After picking a date: on the stacked layout show the "funds closed that day" list;
+// side-by-side, the list is already visible, so bring the month into view instead.
+function revealHolDay(ds) {
+  const card = document.getElementById('hol-day-card');
+  if (holStacked() && card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  else if (!holStacked()) scrollToHolMonth(Number(ds.slice(5, 7)) - 1);
+}
+
 function jumpToHolDay(ds) {
   holDay = ds;
   holYear = Number(ds.slice(0, 4));
   renderHolidayCal();
-  scrollToHolMonth(Number(ds.slice(5, 7)) - 1);
+  revealHolDay(ds);
 }
 
 function clearHolSearch() {
@@ -2187,6 +2199,7 @@ function goHolToday() {
     if (!day) return;
     holDay = holDay === day.dataset.date ? null : day.dataset.date;
     renderHolidayCal();
+    if (holDay) revealHolDay(holDay);
   });
 
   const panel = document.getElementById('hol-panel');
