@@ -885,13 +885,13 @@ const I18N = {
     momFadingFull: 'Momentum Fading', momNeutralFull: 'Neutral Momentum',
     holSearchPh: 'Search fund code, e.g. LHLONGEVITY', today: 'Today',
     legFund: "Selected fund's holiday", legAny: 'Some funds closed (click to see list)',
-    holRange: 'Data covers {from} – {to} ({n} funds)', holNoData: 'No holiday data yet (upload Fund_data/Fundholiday.xlsx)',
+    holRange: 'Data covers {from} – {to} ({n} funds)', holNoData: 'No holiday data yet (upload Fund_data/Fundholiday_MMYYYY.xlsx)',
     holFundClosed: '{code} closed', holClosedCount: '{n} funds closed',
     holTotal: '{n} holidays in total · {u} upcoming', holNoUpcoming: 'No upcoming holidays in the current data',
     holPast: 'Past holidays ({n})', holSearchResult: 'Results for "{q}"', holPick: 'Pick a fund to see its holidays',
     holNotFound: 'This fund is not in the holiday data',
     holUpcomingTitle: 'Upcoming fund holidays', holHint: 'Type a fund code to see its holidays, or click a date to see which funds are closed',
-    holNoUpcomingAll: 'No upcoming holidays yet — update Fund_data/Fundholiday.xlsx',
+    holNoUpcomingAll: 'No upcoming holidays yet — upload Fund_data/Fundholiday_MMYYYY.xlsx',
     holCountShort: '{n} funds', holClosedN: '{n} funds closed', holDayFilter: 'Filter fund codes…',
     holNoneClosed: 'No funds closed on this day'
   },
@@ -926,13 +926,13 @@ const I18N = {
     momFadingFull: 'โมเมนตัมอ่อนแรง', momNeutralFull: 'โมเมนตัมทรงตัว',
     holSearchPh: 'ค้นหารหัสกองทุน เช่น LHLONGEVITY', today: 'วันนี้',
     legFund: 'วันหยุดของกองทุนที่เลือก', legAny: 'มีกองทุนหยุด (คลิกเพื่อดูรายชื่อ)',
-    holRange: 'ข้อมูลครอบคลุม {from} – {to} ({n} กองทุน)', holNoData: 'ยังไม่มีข้อมูลวันหยุด (อัปโหลด Fund_data/Fundholiday.xlsx)',
+    holRange: 'ข้อมูลครอบคลุม {from} – {to} ({n} กองทุน)', holNoData: 'ยังไม่มีข้อมูลวันหยุด (อัปโหลด Fund_data/Fundholiday_MMYYYY.xlsx)',
     holFundClosed: '{code} หยุด', holClosedCount: 'กองทุนหยุด {n} กอง',
     holTotal: 'วันหยุดทั้งหมด {n} วัน · กำลังจะมาถึง {u} วัน', holNoUpcoming: 'ไม่มีวันหยุดที่กำลังจะมาถึงในข้อมูลปัจจุบัน',
     holPast: 'วันหยุดที่ผ่านมา ({n})', holSearchResult: 'ผลการค้นหา "{q}"', holPick: 'เลือกกองทุนเพื่อดูวันหยุด',
     holNotFound: 'ไม่พบกองทุนนี้ในข้อมูลวันหยุด',
     holUpcomingTitle: 'วันหยุดกองทุนที่กำลังจะมาถึง', holHint: 'พิมพ์รหัสกองทุนเพื่อดูวันหยุด หรือคลิกวันที่บนปฏิทินเพื่อดูกองทุนที่หยุด',
-    holNoUpcomingAll: 'ยังไม่มีข้อมูลวันหยุดที่กำลังจะมาถึง — อัปเดตไฟล์ Fund_data/Fundholiday.xlsx',
+    holNoUpcomingAll: 'ยังไม่มีข้อมูลวันหยุดที่กำลังจะมาถึง — อัปโหลดไฟล์ Fund_data/Fundholiday_MMYYYY.xlsx',
     holCountShort: '{n} กอง', holClosedN: 'กองทุนที่หยุด {n} กอง', holDayFilter: 'กรองรหัสกองทุน…',
     holNoneClosed: 'ไม่มีกองทุนหยุดในวันนี้'
   }
@@ -1193,6 +1193,7 @@ function fmtThm(thm) {
 // ── Fund Holiday (loaded live from Fundholiday.xlsx — no code changes needed monthly) ──
 let FUND_HOLIDAYS = {};
 let HOL_BY_DATE = {};
+let HOLIDAY_FILES = []; // which holiday files were found and merged
 let HOLIDAY_TODAY_STR = '', HOLIDAY_NEXT_STR = '', HOLIDAY_WEEK_START_STR = '', HOLIDAY_WEEK_END_STR = '';
 let HOLIDAY_NEXTWEEK_START_STR = '', HOLIDAY_NEXTWEEK_END_STR = '';
 function ymd(d) {
@@ -1260,17 +1261,35 @@ async function loadFundHolidays() {
   HOLIDAY_WEEK_END_STR = ymd(weekEnd(today));
   HOLIDAY_NEXTWEEK_START_STR = ymd(addDays(weekStart(today), 7));
   HOLIDAY_NEXTWEEK_END_STR = ymd(addDays(weekEnd(today), 7));
-  try {
-    const res = await fetch('Fund_data/Fundholiday.xlsx?t=' + Date.now());
-    if (!res.ok) throw new Error();
-    const buf = await res.arrayBuffer();
-    // Note: cellDates is intentionally NOT used — SheetJS builds those Date objects at
-    // local midnight, and reading them back with UTC getters shifts the date by one day
-    // in any timezone ahead of UTC (e.g. Thailand, UTC+7). Raw numeric serials avoid that.
-    const wb = XLSX.read(buf, { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
-    const map = {};
+
+  // Monthly files: Fund_data/Fundholiday_MMYYYY.xlsx (e.g. Fundholiday_102026.xlsx = Oct 2026).
+  // A static site can't list a folder, so try every month from 12 months back to 12 ahead
+  // and merge whichever files exist. The old single Fundholiday.xlsx is still read too.
+  const files = ['Fundholiday.xlsx'];
+  for (let i = -12; i <= 12; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    files.push(`Fundholiday_${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}.xlsx`);
+  }
+  const bust = Date.now();
+  const buffers = await Promise.all(files.map(async name => {
+    try {
+      const res = await fetch(`Fund_data/${name}?t=${bust}`);
+      return res.ok ? await res.arrayBuffer() : null;
+    } catch { return null; }
+  }));
+  HOLIDAY_FILES = files.filter((_, i) => buffers[i]);
+
+  const map = {};
+  buffers.forEach(buf => {
+    if (!buf) return;
+    let rows;
+    try {
+      // Note: cellDates is intentionally NOT used — SheetJS builds those Date objects at
+      // local midnight, and reading them back with UTC getters shifts the date by one day
+      // in any timezone ahead of UTC (e.g. Thailand, UTC+7). Raw numeric serials avoid that.
+      const wb = XLSX.read(buf, { type: 'array' });
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null, raw: true });
+    } catch { return; } // skip a corrupt / half-uploaded file, keep the rest
     rows.forEach(row => {
       const code = row.fund_code ?? row['Fund Code'] ?? row['fund code'];
       const dateVal = row.holiday_date ?? row['Holiday Date'] ?? row['holiday date'];
@@ -1286,8 +1305,8 @@ async function loadFundHolidays() {
       if (!map[key]) map[key] = [];
       map[key].push(dateStr);
     });
-    FUND_HOLIDAYS = map;
-  } catch { FUND_HOLIDAYS = {}; /* Fundholiday.xlsx not uploaded yet — badges simply won't show */ }
+  });
+  FUND_HOLIDAYS = map; // empty if no holiday files are uploaded — badges simply won't show
   // Reverse index for the calendar tab: date -> fund codes closed that day
   HOL_BY_DATE = {};
   for (const [code, dates] of Object.entries(FUND_HOLIDAYS)) {
