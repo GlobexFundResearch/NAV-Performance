@@ -4,9 +4,7 @@
 # To remove a fund: delete its line (or put a # in front of it).
 # After editing, upload this file to GitHub (same folder as index.html).
 
-TOP11JPN
-M-FREEDOM
-DAOL-SUPERAI
-LHSUPERAI
-DAOL-COPPER
-LHCOPPER
+TLWORLDHD
+ASP-TAIWAN
+LHLONGEVITY
+KT-FINANCE-A
