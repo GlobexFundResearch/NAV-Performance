@@ -1,0 +1,2885 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%231f5fd1'/><path d='M8 21l5-5 4 3 7-8' fill='none' stroke='white' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<script>
+// Apply the saved light/dark choice before first paint (no flash)
+try { const th = localStorage.getItem('navTheme'); if (th === 'dark' || th === 'light') document.documentElement.dataset.theme = th; } catch {}
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAV Performance Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Design tokens (light) ── */
+:root {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f1f3f6; --hover: #f4f7fc;
+  --border: #e4e7ec; --border-strong: #cfd5de;
+  --text: #0f1729; --text-2: #475467; --muted: #8a94a6;
+  --primary: #123c7c; --accent: #1f5fd1; --accent-bg: #eaf1fd; --accent-fg: #1a4fae; --on-accent: #ffffff;
+  --pos: #067647; --neg: #c0262d; --pos-rgb: 6,118,71; --neg-rgb: 192,38,45;
+  --warn: #b54708; --warn-bg: #fef4e6;
+  --danger-fg: #b42318; --danger-bg: #fdecec;
+  --mom-strong: #12a150; --mom-rising: #e08a00; --mom-fading: #d92d20; --mom-neutral: #98a2b3;
+  --shadow-pop: 0 12px 32px rgba(16,24,40,.12), 0 2px 6px rgba(16,24,40,.06);
+  --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --header-h: 56px; --tabbar-h: 44px;
+  color-scheme: light;
+}
+/* ── Dark tokens (auto, unless the user picked light) ── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b0f17; --surface: #121823; --surface-2: #19202d; --hover: #182132;
+    --border: #232b39; --border-strong: #354055;
+    --text: #e8ecf3; --text-2: #b3bccb; --muted: #7c8799;
+    --primary: #9cc0ff; --accent: #4f83ea; --accent-bg: #172440; --accent-fg: #9cc0ff;
+    --pos: #3ccb7f; --neg: #ff6b6b; --pos-rgb: 60,203,127; --neg-rgb: 255,107,107;
+    --warn: #f5a524; --warn-bg: #2b2111; --danger-fg: #ff8a8a; --danger-bg: #351719;
+    --shadow-pop: 0 12px 32px rgba(0,0,0,.55);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b0f17; --surface: #121823; --surface-2: #19202d; --hover: #182132;
+  --border: #232b39; --border-strong: #354055;
+  --text: #e8ecf3; --text-2: #b3bccb; --muted: #7c8799;
+  --primary: #9cc0ff; --accent: #4f83ea; --accent-bg: #172440; --accent-fg: #9cc0ff;
+  --pos: #3ccb7f; --neg: #ff6b6b; --pos-rgb: 60,203,127; --neg-rgb: 255,107,107;
+  --warn: #f5a524; --warn-bg: #2b2111; --danger-fg: #ff8a8a; --danger-bg: #351719;
+  --shadow-pop: 0 12px 32px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+
+body {
+  font-family: 'Prompt', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text);
+  font-size: 14px; line-height: 1.45; -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+}
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ico { width: 16px; height: 16px; flex-shrink: 0; vertical-align: -3px; }
+.num-font, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+/* ── Maintenance overlay ── */
+#maintenance-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(11,15,23,.45);
+  align-items: center; justify-content: center; padding: 20px;
+}
+.maint-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 32px 28px; max-width: 360px; width: 100%; text-align: center; box-shadow: var(--shadow-pop);
+}
+.maint-icon { width: 40px; height: 40px; margin: 0 auto 14px; border-radius: 10px; background: var(--accent-bg); color: var(--accent-fg); display: grid; place-items: center; }
+.maint-icon .ico { width: 20px; height: 20px; }
+.maint-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; line-height: 1.5; }
+.maint-sub { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+
+/* ── Header ── */
+header {
+  position: sticky; top: 0; z-index: 200; height: var(--header-h);
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 20px;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-mark {
+  width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--on-accent);
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.brand-mark .ico { width: 17px; height: 17px; }
+.h-toprow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.h-title { font-size: 15px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.h-tag { font-size: 10.5px; font-weight: 500; color: var(--warn); background: var(--warn-bg); padding: 1px 7px; border-radius: 4px; white-space: nowrap; }
+.h-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.h-right { font-size: 11px; color: var(--muted); text-align: right; line-height: 1.55; white-space: nowrap; }
+.h-meta { color: var(--text-2); }
+.h-meta .mono { color: var(--text); font-weight: 500; }
+
+/* ── Tabs ── */
+.tabbar {
+  position: sticky; top: var(--header-h); z-index: 195; height: var(--tabbar-h);
+  display: flex; align-items: stretch; gap: 4px; padding: 0 20px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  border: none; background: none; font-size: 13px; font-weight: 500; color: var(--muted);
+  padding: 0 10px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color .15s ease, border-color .15s ease; white-space: nowrap;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.lang-toggle, .seg {
+  display: flex; padding: 2px; gap: 2px; background: var(--surface-2); border-radius: 8px;
+}
+.lang-toggle button {
+  border: none; background: transparent; font-size: 11px; font-weight: 600; color: var(--muted);
+  padding: 3px 9px; border-radius: 6px; cursor: pointer; transition: background-color .15s ease, color .15s ease;
+}
+.lang-toggle button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(16,24,40,.08); }
+.icon-btn {
+  width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.icon-btn:hover { background: var(--hover); border-color: var(--border-strong); }
+.theme-dark-ico { display: none; }
+:root[data-theme="dark"] .theme-dark-ico { display: block; }
+:root[data-theme="dark"] .theme-light-ico { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-dark-ico { display: block; }
+  :root:not([data-theme="light"]) .theme-light-ico { display: none; }
+}
+body.on-holiday-tab #compare-bar { display: none; }
+.table-wrap, #card-grid { scroll-margin-top: var(--sticky-offset, 132px); }
+
+/* ── Filter bar ── */
+.filterbar {
+  position: sticky; top: calc(var(--header-h) + var(--tabbar-h)); z-index: 190;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.filterbar-inner {
+  display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+  overflow-x: auto; scrollbar-width: none; flex-wrap: wrap;
+}
+.filterbar-inner::-webkit-scrollbar { display: none; }
+
+/* Search */
+.search-wrap { position: relative; flex: 1; min-width: 180px; max-width: 360px; }
+.search-wrap input {
+  width: 100%; height: 34px; padding: 0 34px 0 34px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  font-size: 13px; outline: none; transition: border-color .15s ease, box-shadow .15s ease;
+}
+.search-wrap input::placeholder, .ss-input::placeholder, .hol-search input::placeholder { color: var(--muted); }
+.search-wrap input:focus, .hol-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; display: flex; }
+.kbd {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1;
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px; pointer-events: none;
+  transition: opacity .15s ease;
+}
+.search-wrap input:focus ~ .kbd, .search-wrap input:not(:placeholder-shown) ~ .kbd { opacity: 0; }
+
+/* Searchable select */
+.ss-wrap { position: relative; min-width: 150px; flex-shrink: 0; }
+.ss-input {
+  width: 100%; height: 34px; padding: 0 26px 0 11px;
+  border: 1px solid var(--border); border-radius: 8px; font-size: 12.5px; outline: none; cursor: pointer;
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238a94a6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 10px center;
+  text-overflow: ellipsis; transition: border-color .15s ease;
+}
+.ss-input:hover { border-color: var(--border-strong); }
+.ss-input:focus, .ss-input.open { border-color: var(--accent); }
+.ss-input:not(:placeholder-shown) { color: var(--accent-fg); background-color: var(--accent-bg); border-color: transparent; font-weight: 500; }
+.ss-dropdown {
+  position: fixed; min-width: 220px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: var(--shadow-pop); z-index: 500; overflow: hidden;
+  opacity: 0; visibility: hidden; transform: translateY(-4px);
+  transition: opacity .12s ease, transform .12s ease, visibility .12s;
+}
+.ss-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
+.ss-search {
+  width: 100%; padding: 9px 12px; border: none; border-bottom: 1px solid var(--border);
+  font-size: 12.5px; outline: none; background: transparent;
+}
+.ss-list { max-height: 260px; overflow-y: auto; padding: 4px; }
+.ss-option {
+  padding: 7px 8px; font-size: 12.5px; cursor: pointer; border-radius: 6px;
+  display: flex; align-items: center; gap: 9px; transition: background-color .1s;
+}
+.ss-option:hover { background: var(--hover); }
+.ss-option.selected { color: var(--accent-fg); font-weight: 500; }
+.ss-option.hidden { display: none; }
+.ss-check {
+  width: 15px; height: 15px; border: 1.5px solid var(--border-strong); border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  font-size: 10px; color: var(--on-accent);
+}
+.ss-option.selected .ss-check { background: var(--accent); border-color: var(--accent); }
+.fh-note { font-size: 11px; color: var(--warn); background: var(--warn-bg); padding: 7px 12px; }
+
+/* Momentum segmented filter */
+.mom-filter-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mom-label { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.mom-seg { display: flex; padding: 2px; gap: 2px; background: var(--surface-2); border-radius: 8px; flex-wrap: wrap; }
+.mom-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 6px; border: none; background: transparent;
+  font-size: 12px; font-weight: 500; color: var(--text-2); cursor: pointer; white-space: nowrap;
+  transition: background-color .12s ease, color .12s ease;
+}
+.mom-btn:hover { color: var(--text); }
+.mom-btn[data-mom]:not([data-mom=""])::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.mom-btn[data-mom="Strong"]  { --c: var(--mom-strong); }
+.mom-btn[data-mom="Rising"]  { --c: var(--mom-rising); }
+.mom-btn[data-mom="Fading"]  { --c: var(--mom-fading); }
+.mom-btn[data-mom="Neutral"] { --c: var(--mom-neutral); }
+.mom-btn.active-strong, .mom-btn.active-rising, .mom-btn.active-fading, .mom-btn.active-neutral, .mom-btn.mom-btn-all {
+  background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(16,24,40,.1);
+}
+
+.count-pill {
+  margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--muted);
+  white-space: nowrap; flex-shrink: 0; font-variant-numeric: tabular-nums;
+}
+.clear-btn, .ghost-btn, .filter-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px;
+  border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+  font-size: 12.5px; font-weight: 500; color: var(--text-2); cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.clear-btn:hover, .ghost-btn:hover, .filter-btn:hover { background: var(--hover); border-color: var(--border-strong); color: var(--text); }
+.clear-btn .ico, .ghost-btn .ico, .filter-btn .ico { width: 14px; height: 14px; }
+
+/* Mobile filter drawer */
+.filter-btn { display: none; }
+.filter-drawer {
+  display: flex; background: var(--bg); padding: 0 12px; gap: 8px; flex-wrap: wrap;
+  max-height: 0; overflow: hidden; opacity: 0; visibility: hidden;
+  transition: max-height .25s ease, opacity .2s ease, padding .25s ease, visibility 0s .25s;
+}
+.filter-drawer.open { max-height: 640px; opacity: 1; padding: 4px 12px 12px; visibility: visible; transition-delay: 0s; }
+.filter-drawer .ss-wrap { min-width: calc(50% - 4px); flex: 1; }
+
+/* ── Badges ── */
+.mom-badge {
+  --c: var(--mom-neutral);
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 7px; border-radius: 5px;
+  font-size: 11px; font-weight: 500; white-space: nowrap; color: var(--text);
+  background: color-mix(in srgb, var(--c) 13%, transparent);
+  cursor: pointer; touch-action: manipulation; transition: background-color .15s ease;
+}
+.mom-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
+.mom-badge:hover { background: color-mix(in srgb, var(--c) 22%, transparent); }
+.mom-strong  { --c: var(--mom-strong); }
+.mom-rising  { --c: var(--mom-rising); }
+.mom-fading  { --c: var(--mom-fading); }
+.mom-neutral { --c: var(--mom-neutral); }
+
+.type-tag, .style-tag {
+  display: inline-block; border-radius: 4px; padding: 1px 6px; font-size: 10.5px; font-weight: 500;
+  white-space: nowrap; border: 1px solid var(--border); color: var(--text-2); background: var(--surface);
+}
+.type-etf { color: var(--accent-fg); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.style-unknown { color: var(--muted); border-style: dashed; white-space: normal; }
+
+.hl-badge, .thm-badge {
+  display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 500;
+  white-space: normal; margin: 3px 3px 0 0; line-height: 1.5;
+}
+.rec-badge { background: var(--accent-bg); color: var(--accent-fg); }
+.mon-badge { background: var(--warn-bg); color: var(--warn); }
+.holiday-badge { background: var(--danger-bg); color: var(--danger-fg); }
+.thm-badge { background: var(--surface-2); color: var(--text-2); }
+
+/* ── Momentum popover ── */
+#mom-backdrop {
+  position: fixed; inset: 0; z-index: 9998;
+  opacity: 0; visibility: hidden; transition: opacity .2s ease, visibility .2s;
+}
+#mom-backdrop.show { opacity: 1; visibility: visible; }
+#mom-tip {
+  position: fixed; z-index: 9999; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-pop); min-width: 320px; max-width: 380px; overflow: hidden;
+  opacity: 0; visibility: hidden; transform: translateY(4px);
+  transition: opacity .15s ease, transform .15s ease, visibility .15s;
+}
+#mom-tip.show { opacity: 1; visibility: visible; transform: translateY(0); }
+.tip-header {
+  --c: var(--mom-neutral);
+  padding: 14px 18px; font-size: 14px; font-weight: 600; color: var(--text);
+  border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+  background: color-mix(in srgb, var(--c) 9%, transparent);
+}
+#tip-stage { display: inline-flex; align-items: center; gap: 8px; order: -1; }
+#tip-stage::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.tip-tap-hint { margin-left: auto; font-size: 10.5px; color: var(--muted); font-weight: 400; }
+.tip-actions { padding: 6px 18px 14px; }
+.tip-action { margin-top: 10px; }
+.tip-action-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.tip-action-desc { font-size: 13px; color: var(--text-2); line-height: 1.55; }
+.tip-disclaimer {
+  font-size: 11px; color: var(--muted); padding: 10px 18px 12px;
+  border-top: 1px solid var(--border); line-height: 1.6; background: var(--surface-2);
+}
+@media (max-width: 680px) {
+  #mom-backdrop { background: rgba(11,15,23,.4); }
+  #mom-tip {
+    left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; width: 100% !important;
+    min-width: unset; max-width: 100%; border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom); transform: translateY(100%);
+  }
+  #mom-tip.show { transform: translateY(0); }
+  .tip-header { padding: 16px 20px; font-size: 15px; }
+  .tip-actions { padding: 8px 20px 16px; }
+  .tip-action-name, .tip-action-desc { font-size: 14px; }
+  .tip-disclaimer { font-size: 12px; padding: 12px 20px 14px; }
+}
+
+.mom-info {
+  display: inline-grid; place-items: center; width: 14px; height: 14px; border: 1px solid var(--border-strong);
+  color: var(--muted); border-radius: 50%; font-size: 9px; font-weight: 600;
+  cursor: help; margin-left: 4px; vertical-align: 1px;
+}
+.disclaimer-bar { background: var(--warn-bg); padding: 6px 20px; font-size: 11px; color: var(--warn); }
+
+/* ── Desktop table ── */
+.table-wrap {
+  margin: 14px 20px 96px; overflow: auto; max-height: calc(100vh - var(--sticky-offset, 96px) - 14px);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+}
+table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; min-width: 960px; }
+.c-chk  { width: 36px; }
+.c-fund { width: 200px; }
+.c-type { width: 96px; }
+.c-style { width: 80px; }
+.c-cls  { width: 170px; }
+.c-nav  { width: 100px; }
+.c-pct  { width: 74px; }
+.c-mom  { width: 140px; }
+
+thead { position: sticky; top: 0; z-index: 150; }
+thead th {
+  padding: 10px 10px; text-align: left; font-size: 11px; font-weight: 500; color: var(--muted);
+  white-space: nowrap; background: var(--surface); border-bottom: 1px solid var(--border);
+}
+thead th:first-child { text-align: center; }
+thead th.num { text-align: right; }
+th.sortable { cursor: pointer; user-select: none; transition: color .15s ease; }
+th.sortable:hover { color: var(--text); }
+.sort-icon { font-size: 10px; margin-left: 3px; }
+th.sort-asc .sort-icon::after  { content: '↑'; }
+th.sort-desc .sort-icon::after { content: '↓'; }
+th.sort-asc, th.sort-desc { color: var(--accent-fg); }
+
+tbody tr { transition: background-color .12s ease; }
+tbody tr:hover { background: var(--hover); }
+tbody td { border-bottom: 1px solid var(--border); }
+tbody tr:last-child td { border-bottom: none; }
+tr.group-hd, tr.group-hd:hover { background: var(--surface-2); }
+tr.group-hd td { font-weight: 600; font-size: 11px; color: var(--text-2); padding: 7px 12px; }
+
+td { padding: 9px 10px; vertical-align: middle; overflow: hidden; }
+td.num { text-align: right; }
+
+.fund-code { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: normal; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fund-name { font-size: 11px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: normal; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fund-date { color: var(--muted); font-size: 10.5px; margin-top: 1px; font-family: var(--mono); }
+.cls-tag { display: block; color: var(--text-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; font-size: 13px; white-space: nowrap; }
+.nav-lbl { font-size: 10.5px; color: var(--muted); }
+
+.pct {
+  display: inline-block; text-align: right; width: 100%; font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-weight: 500; font-size: 12px; padding: 3px 6px; border-radius: 4px; white-space: nowrap;
+}
+.na { color: var(--muted); font-weight: 400; font-size: 12px; opacity: .6; }
+
+/* ── Mobile cards ── */
+.card-grid { display: none; padding: 12px; gap: 10px; flex-direction: column; }
+.card { background: var(--surface); border-radius: 10px; padding: 14px; border: 1px solid var(--border); transition: border-color .15s ease; }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; gap: 8px; }
+.card-head-left { min-width: 0; }
+.card-head-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.card-name { font-weight: 600; font-size: 15px; line-height: 1.3; }
+.card-fn   { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.card-cls  { font-size: 10.5px; color: var(--text-2); white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.card-nav-row { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 10px; }
+.card-nav-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; font-size: 20px; letter-spacing: -.01em; }
+.card-nav-lbl { font-size: 10.5px; color: var(--muted); }
+.card-date    { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+.card-perf { display: grid; grid-template-columns: repeat(5,1fr); gap: 4px; margin-bottom: 8px; }
+.card-pct { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.card-pct-label { font-size: 10px; color: var(--muted); font-weight: 500; }
+.card-pct-val {
+  font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 11.5px; font-weight: 500;
+  padding: 3px 4px; border-radius: 4px; width: 100%; text-align: center; white-space: nowrap;
+}
+.cat-label { font-size: 11px; font-weight: 600; color: var(--muted); padding: 8px 2px 0; }
+
+/* ── States ── */
+.state-row td { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 13px; }
+.state-msg    { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 13px; }
+.spinner { display: inline-block; width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; margin-bottom: 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 8px; font-size: 13px;
+  box-shadow: var(--shadow-pop); z-index: 9999; opacity: 0; transition: opacity .2s; pointer-events: none; white-space: nowrap;
+}
+
+/* ── Compare ── */
+.chk-cell { text-align: center; }
+input.row-chk, input.card-chk { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); vertical-align: middle; }
+.card-title-row { display: flex; align-items: flex-start; gap: 8px; }
+.card-title-row input.card-chk { margin-top: 3px; flex-shrink: 0; }
+
+#compare-bar {
+  position: fixed; left: 50%; bottom: 16px; z-index: 300; width: min(560px, calc(100% - 24px));
+  background: var(--surface); color: var(--text); padding: 8px 8px 8px 16px;
+  border: 1px solid var(--border-strong); border-radius: 12px; box-shadow: var(--shadow-pop);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  transform: translate(-50%, calc(100% + 24px)); opacity: 0; pointer-events: none;
+  transition: transform .22s ease, opacity .18s ease, border-color .15s ease;
+}
+#compare-bar.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+#compare-bar.mode { border-color: var(--accent); }
+.compare-bar-text { font-size: 13px; font-weight: 500; }
+.compare-bar-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.compare-btn {
+  height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid transparent; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; transition: background-color .15s ease, opacity .15s ease;
+}
+.compare-btn-primary { background: var(--accent); color: var(--on-accent); }
+.compare-btn-primary:hover { filter: brightness(1.08); }
+.compare-btn-primary:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.compare-btn-secondary { background: transparent; color: var(--text-2); border-color: var(--border); }
+.compare-btn-secondary:hover { background: var(--hover); }
+
+tbody tr.compare-row, tbody tr.compare-row:hover { background: var(--accent-bg); }
+.card.compare-row { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+
+[hidden] { display: none !important; }
+
+/* ── Featured: Recommended | Monthly Pick | Top 1 Month ── */
+.feat-section { margin: 16px 20px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.feat-group {
+  min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 12px 8px;
+}
+.feat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; padding: 0 2px; }
+.feat-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feat-title .ico { color: var(--fc, var(--accent)); }
+#feat-rec-group { --fc: var(--accent); }
+#feat-mon-group { --fc: var(--warn); }
+#feat-top-group { --fc: var(--pos); }
+.feat-count { font-family: var(--mono); font-size: 11px; color: var(--muted); font-weight: 400; }
+.feat-arrows { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+.feat-pos { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-right: 4px; font-variant-numeric: tabular-nums; }
+.feat-arrows button {
+  width: 26px; height: 26px; display: grid; place-items: center; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.feat-arrows button:hover { background: var(--hover); border-color: var(--border-strong); }
+.feat-arrows .ico { width: 14px; height: 14px; }
+.feat-row { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; padding: 1px 1px 6px; scrollbar-width: none; }
+.feat-row::-webkit-scrollbar { display: none; }
+.feat-card {
+  flex: 0 0 calc(100% - 22px); min-width: 0; scroll-snap-align: start; position: relative; overflow: hidden;
+  border: 1px solid var(--border); border-radius: 8px; padding: 12px; background: var(--surface);
+  cursor: pointer; transition: border-color .15s ease, background-color .15s ease;
+}
+.feat-card:hover, .feat-card:focus-visible { border-color: var(--border-strong); background: var(--hover); outline: none; }
+.feat-rank {
+  position: absolute; top: 11px; right: 11px; font-family: var(--mono); font-size: 11px; font-weight: 500;
+  color: var(--muted); background: var(--surface-2); border-radius: 4px; padding: 1px 6px;
+}
+.feat-rank.gold { color: var(--warn); background: var(--warn-bg); }
+.feat-card.top .feat-code { padding-right: 36px; }
+.feat-code { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.feat-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.feat-tags { display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap; }
+.feat-nav-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.feat-nav-val { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 500; font-size: 18px; letter-spacing: -.01em; }
+.feat-nav-lbl { font-size: 10.5px; color: var(--muted); }
+.feat-perf { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 8px; }
+
+/* ── Fund Holiday calendar tab ── */
+.holiday-page { padding: 16px 20px 48px; }
+.hol-toolbar {
+  display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+}
+.hol-search { position: relative; flex: 1; min-width: 220px; max-width: 420px; }
+.hol-search input {
+  width: 100%; height: 36px; padding: 0 34px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; outline: none; background: var(--surface); transition: border-color .15s ease, box-shadow .15s ease;
+}
+.hol-clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
+  border: none; background: none; cursor: pointer; color: var(--muted); padding: 5px; border-radius: 6px;
+}
+.hol-clear:hover { background: var(--hover); color: var(--text); }
+.hol-clear .ico { width: 14px; height: 14px; }
+.hol-yearnav { display: flex; align-items: center; gap: 6px; }
+.hol-yearnav button {
+  border: 1px solid var(--border); background: var(--surface); border-radius: 8px; min-width: 34px; height: 34px;
+  cursor: pointer; font-weight: 500; color: var(--text-2); display: grid; place-items: center;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.hol-yearnav button:hover { background: var(--hover); border-color: var(--border-strong); }
+.hol-yearnav .ico { width: 15px; height: 15px; }
+.hol-yearnav .hol-today { padding: 0 12px; font-size: 12.5px; display: inline-flex; align-items: center; }
+#hol-year { font-family: var(--mono); font-weight: 500; font-size: 15px; min-width: 52px; text-align: center; }
+.hol-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); margin: 12px 2px; align-items: center; }
+.hol-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -2px; margin-right: 6px; }
+.hol-legend .lg-fund { background: var(--neg); }
+.hol-legend .lg-any  { width: 6px; height: 6px; background: var(--neg); vertical-align: 1px; }
+.hol-legend .lg-today { box-shadow: inset 0 0 0 1.5px var(--accent); }
+#hol-range { margin-left: auto; font-family: var(--mono); font-size: 11px; }
+.hol-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; align-items: start; }
+.hol-cal {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+}
+.hol-month { padding: 8px; border-radius: 8px; transition: background-color .2s ease; }
+.hol-month.has-fund-hol { background: var(--danger-bg); }
+.hol-month-title { font-weight: 600; font-size: 13px; margin: 0 0 6px 4px; }
+.hol-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.hol-wd { font-size: 10px; color: var(--muted); padding: 4px 0; }
+.hol-day {
+  position: relative; aspect-ratio: 1; border: none; background: none; border-radius: 6px; padding: 0;
+  font-family: var(--mono); font-size: 11.5px; color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: background-color .12s ease, color .12s ease;
+}
+.hol-day:hover { background: var(--hover); }
+.hol-day.empty { pointer-events: none; }
+.hol-day.weekend { color: var(--muted); }
+.hol-day.past { opacity: .45; }
+.hol-day.today { box-shadow: inset 0 0 0 1.5px var(--accent); font-weight: 600; color: var(--accent-fg); }
+.hol-day.has-hol::after {
+  content: ''; position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: 50%; background: var(--neg);
+}
+.hol-day.is-hol { background: var(--neg); color: #fff; font-weight: 600; }
+.hol-day.picked { box-shadow: inset 0 0 0 2px var(--text); }
+.hol-panel {
+  position: sticky; top: calc(var(--header-h) + var(--tabbar-h) + 12px);
+  display: flex; flex-direction: column; gap: 12px;
+  max-height: calc(100vh - var(--header-h) - var(--tabbar-h) - 24px); overflow: auto;
+}
+.hol-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; scroll-margin-top: calc(var(--header-h) + var(--tabbar-h) + 10px); }
+.hol-card-title { font-weight: 600; font-size: 13.5px; word-break: break-word; }
+.hol-card-sub { font-size: 11.5px; color: var(--muted); margin: 2px 0 10px; line-height: 1.5; }
+.hol-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.hol-list button {
+  width: 100%; text-align: left; border: none; background: transparent; border-radius: 6px;
+  padding: 7px 8px; font-size: 12.5px; cursor: pointer; color: var(--text);
+  display: flex; justify-content: space-between; align-items: center; gap: 8px; transition: background-color .12s ease;
+}
+.hol-list button::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--neg); flex-shrink: 0; }
+.hol-list button > span:first-child { margin-right: auto; }
+.hol-list button:hover { background: var(--hover); }
+.hol-list.past button { color: var(--muted); }
+.hol-list.past button::before { background: var(--border-strong); }
+.hol-list button:not(:has(span)) { justify-content: flex-start; }
+.hol-list .hol-count { font-family: var(--mono); font-size: 11.5px; color: var(--text-2); }
+.hol-chips { display: flex; flex-wrap: wrap; gap: 5px; max-height: 320px; overflow: auto; }
+.hol-chip {
+  border: 1px solid var(--border); background: var(--surface); border-radius: 6px; padding: 3px 8px;
+  font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--text-2); cursor: pointer;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+.hol-chip:hover { background: var(--hover); color: var(--text); border-color: var(--border-strong); }
+.hol-chip.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.hol-day-filter {
+  width: 100%; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 12.5px; margin-bottom: 8px; outline: none; background: var(--surface);
+}
+.hol-day-filter:focus { border-color: var(--accent); }
+.hol-empty, .hol-tip { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.hol-card details summary { cursor: pointer; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+
+@media (max-width: 900px) {
+  .feat-section { grid-template-columns: minmax(0, 1fr); }
+  .hol-layout { grid-template-columns: 1fr; }
+  .hol-panel { position: static; max-height: none; order: -1; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 720px) {
+  header { padding: 0 14px; }
+  .h-sub, .h-right .h-extra { display: none; }
+  .h-title { font-size: 14px; }
+  .brand-mark { width: 26px; height: 26px; }
+  .table-wrap { display: none; }
+  .card-grid { display: flex; }
+  .filter-btn { display: inline-flex; }
+  .filterbar-inner { padding: 10px 12px; flex-wrap: nowrap; }
+  .filterbar-inner .desktop-only { display: none; }
+  .search-wrap { max-width: none; }
+  .kbd { display: none; }
+  .tabbar { padding: 0 8px; gap: 0; }
+  .tab-btn { padding: 0 8px; font-size: 12.5px; }
+  .tab-btn .ico { display: none; }
+  .feat-section { margin: 12px 12px 0; }
+  .feat-arrows button { display: none; }
+  .holiday-page { padding: 12px; }
+  .hol-cal { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); padding: 10px; gap: 4px 8px; }
+  .hol-day { font-size: 10.5px; }
+  .hol-yearnav { width: 100%; justify-content: space-between; }
+  #hol-range { margin-left: 0; }
+}
+@media (max-width: 420px) {
+  .h-tag { display: none; }
+}
+
+/* ════════ Design E: list + detail panel ════════ */
+:root { --mono: 'Prompt', 'Segoe UI', system-ui, sans-serif; }
+
+/* Jump-to-fund button (opens the Ctrl+K quick search) */
+.jump-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px 0 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  color: var(--muted); font-size: 12.5px; cursor: pointer; transition: border-color .15s ease, background-color .15s ease;
+}
+.jump-btn:hover { border-color: var(--border-strong); background: var(--hover); }
+.jump-btn kbd, .cmdk kbd {
+  font-family: inherit; font-size: 10.5px; color: var(--text-2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 0 5px; line-height: 16px; background: var(--surface-2);
+}
+
+/* Summary strip: Top gainers | Top losers | Recommended | Monthly pick */
+.sum { margin: 14px 20px 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.sum-tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 6px 8px 12px; min-width: 0; }
+.sum-h { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; margin: 0 6px 6px 0; }
+.sum-h .ico { color: var(--sc, var(--accent)); }
+.sum-h .sum-n { font-weight: 400; color: var(--muted); font-size: 11px; }
+.sum-per { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--muted); }
+#sum-gain { --sc: var(--pos); } #sum-loss { --sc: var(--neg); } #sum-rec { --sc: var(--accent); } #sum-mon { --sc: var(--warn); }
+.sum-list { max-height: 158px; overflow-y: auto; padding-right: 6px; scrollbar-width: thin; }
+.sum-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; border: none; background: none; text-align: left;
+  padding: 5px 6px; margin: 0 -6px; width: calc(100% + 6px); border-radius: 6px; cursor: pointer; font-size: 12.5px;
+}
+.sum-row:hover, .sum-row:focus-visible { background: var(--hover); }
+.sum-rank { width: 14px; font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.sum-code { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.sum-val { font-variant-numeric: tabular-nums; font-weight: 500; flex-shrink: 0; }
+.sum-empty { font-size: 12px; color: var(--muted); padding: 4px 0; }
+.pos-t { color: var(--pos); } .neg-t { color: var(--neg); } .zero-t { color: var(--muted); }
+
+/* Split layout */
+.split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 14px; margin: 14px 20px 96px; align-items: start; }
+.fl { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.fl-bar {
+  position: sticky; top: calc(var(--sticky-offset, 132px)); z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 10px 8px;
+  background: var(--surface); border-radius: 12px 12px 0 0; border-bottom: 1px solid var(--border);
+}
+.per-seg { display: flex; padding: 2px; gap: 2px; background: var(--surface-2); border-radius: 8px; }
+.per-seg button {
+  border: none; background: transparent; font-size: 12px; font-weight: 500; color: var(--text-2);
+  padding: 4px 8px; border-radius: 6px; cursor: pointer;
+}
+.per-seg button.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(16,24,40,.1); }
+.fl-sort {
+  height: 28px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-2);
+  font-size: 12px; padding: 0 6px; max-width: 150px; cursor: pointer;
+}
+.fl-head { display: flex; justify-content: space-between; padding: 6px 14px 6px 40px; font-size: 11px; color: var(--muted); }
+.fl-row {
+  display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 9px 12px 9px 12px; border-top: 1px solid var(--border); cursor: pointer;
+  scroll-margin-top: calc(var(--sticky-offset, 132px) + 60px); scroll-margin-bottom: 90px;
+  border-left: 3px solid transparent; padding-left: 9px;
+}
+.fl-row:hover { background: var(--hover); }
+.fl-row.on { background: var(--accent-bg); border-left-color: var(--accent); }
+.fl-row.compare-row .fl-code { color: var(--accent-fg); }
+.fl-row input.row-chk { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); margin: 0; }
+.fl-main { min-width: 0; }
+.fl-code { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fl-code span.c { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fl-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--mom-neutral)); flex-shrink: 0; }
+.fl-star { width: 13px; height: 13px; flex-shrink: 0; }
+.fl-star.rec { color: var(--accent); } .fl-star.mon { color: var(--warn); } .fl-star.hol { color: var(--danger-fg); }
+.fl-name { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.fl-right { text-align: right; }
+.fl-ret { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 13px; }
+.fl-nav { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fl-list .state-msg { padding: 40px 20px; }
+
+/* Detail panel */
+.fd {
+  position: sticky; top: calc(var(--sticky-offset, 132px) + 14px);
+  max-height: calc(100vh - var(--sticky-offset, 132px) - 28px); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px;
+  min-width: 0; scrollbar-width: thin;
+}
+.fd-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 60px 20px; }
+.fd-empty .ico { width: 28px; height: 28px; display: block; margin: 0 auto 10px; }
+.fd-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.fd-code { font-size: 22px; font-weight: 600; line-height: 1.25; word-break: break-word; }
+.fd-name { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.fd-close { display: none; }
+.fd-badges { margin-top: 6px; }
+.fd-tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 4px; }
+.fd-tags .cls-pill { font-size: 11px; color: var(--text-2); background: var(--surface-2); border-radius: 4px; padding: 1px 7px; }
+.fd-tags .thm-badge { margin: 0; }
+.fd-nav { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 14px 0 4px; }
+.fd-nav-val { font-size: 34px; font-weight: 500; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fd-nav-meta { font-size: 12px; color: var(--muted); }
+.fd-sec { font-size: 12px; font-weight: 600; color: var(--text-2); margin: 20px 0 8px; display: flex; align-items: center; gap: 6px; }
+.fd-sec .hint { font-weight: 400; color: var(--muted); font-size: 11px; }
+.fd-bar { display: grid; grid-template-columns: 30px minmax(0, 1fr) 76px; align-items: center; gap: 10px; padding: 5px 0; font-size: 12.5px; }
+.fd-bar-lbl { color: var(--text-2); font-weight: 500; }
+.fd-trk { position: relative; height: 10px; background: var(--surface-2); border-radius: 5px; }
+.fd-trk::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--border-strong); }
+.fd-fill { position: absolute; top: 0; bottom: 0; border-radius: 5px; }
+.fd-fill.pos { left: 50%; background: var(--pos); } .fd-fill.neg { right: 50%; background: var(--neg); }
+.fd-bar-val { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fd-mom { --c: var(--mom-neutral); border-radius: 10px; padding: 12px 14px; background: color-mix(in srgb, var(--c) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
+.fd-mom-h { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13.5px; }
+.fd-mom-h::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.fd-acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.fd-act { background: var(--surface); border-radius: 8px; padding: 8px 10px; }
+.fd-act-n { font-weight: 600; font-size: 12.5px; }
+.fd-act-d { font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
+.fd-disc { font-size: 11px; color: var(--muted); margin-top: 8px; }
+.fd-hols { display: flex; flex-wrap: wrap; gap: 6px; }
+.fd-hol { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--danger-bg); color: var(--danger-fg); }
+.fd-none { font-size: 12px; color: var(--muted); }
+.fd-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.fd-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: 8px;
+  border: 1px solid var(--border-strong); background: var(--surface); font-size: 12.5px; font-weight: 500; cursor: pointer;
+}
+.fd-btn:hover { background: var(--hover); }
+.fd-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.fd-btn.primary:hover { filter: brightness(1.08); background: var(--accent); }
+
+/* Compare table inside the detail panel */
+.cmp-wrap { overflow-x: auto; margin-top: 12px; }
+.cmp { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cmp th { text-align: left; font-size: 11px; font-weight: 500; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.cmp td { padding: 8px 4px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+.cmp td:first-child { white-space: normal; min-width: 120px; max-width: 200px; word-break: break-word; padding-left: 0; }
+.cmp td .pct { padding: 2px 6px; }
+.cmp th.n, .cmp td.n { text-align: right; }
+.cmp tr[data-pick] { cursor: pointer; } .cmp tr[data-pick]:hover td { background: var(--hover); }
+.cmp .pct { font-variant-numeric: tabular-nums; }
+.cmp-code { font-weight: 600; } .cmp-name { font-size: 11px; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+
+/* Ctrl+K quick search */
+.cmdk { position: fixed; inset: 0; z-index: 900; background: rgba(11,15,23,.45); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; }
+.cmdk-box { width: min(560px, 100%); background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-pop); overflow: hidden; }
+.cmdk-in { display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--border); }
+.cmdk-in .ico { color: var(--muted); width: 18px; height: 18px; }
+.cmdk-in input { flex: 1; height: 52px; border: none; outline: none; background: transparent; font-size: 15px; }
+.cmdk-list { max-height: min(400px, 60vh); overflow-y: auto; padding: 6px; }
+.cmdk-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.cmdk-item.on { background: var(--accent-bg); }
+.cmdk-code { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk-name { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmdk-ret { font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; }
+.cmdk-empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+.cmdk-foot { display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); }
+
+.fd-backdrop { display: none; }
+
+@media (max-width: 1100px) {
+  .sum { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Phones: list fills the screen; details open as a bottom sheet */
+@media (max-width: 720px) {
+  .jump-btn .jb-txt, .jump-btn kbd { display: none; }
+  .jump-btn { width: 30px; padding: 0; justify-content: center; }
+  .card-grid, .table-wrap { display: none !important; }
+  .sum { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; margin: 12px 0 0; padding: 0 12px 4px; gap: 10px; scrollbar-width: none; }
+  .sum::-webkit-scrollbar { display: none; }
+  .sum-tile { flex: 0 0 78%; scroll-snap-align: start; }
+  .split { display: block; margin: 12px 12px 96px; }
+  .fl-bar { flex-wrap: wrap; }
+  .fd {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 600;
+    max-height: 88vh; border-radius: 18px 18px 0 0; padding: 8px 16px calc(24px + env(safe-area-inset-bottom));
+    transform: translateY(105%); transition: transform .25s ease; box-shadow: var(--shadow-pop);
+  }
+  .fd::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); margin: 0 auto 10px; }
+  body.fd-open .fd { transform: translateY(0); }
+  body.fd-open { overflow: hidden; }
+  .fd-backdrop { display: block; position: fixed; inset: 0; z-index: 590; background: rgba(11,15,23,.45); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+  body.fd-open .fd-backdrop { opacity: 1; pointer-events: auto; }
+  .fd-close {
+    display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--surface); cursor: pointer;
+  }
+  .fd-code { font-size: 19px; }
+  .fd-nav-val { font-size: 30px; }
+  .fd-acts { grid-template-columns: minmax(0, 1fr); }
+  .fd-empty { display: none; }
+  .cmdk { padding-top: 8vh; }
+  /* Phones zoom in on any text box under 16px when it gets focus, so use 16px here */
+  input, select, textarea, .search-wrap input, .ss-input, .ss-search, .hol-search input, .hol-day-filter, .fl-sort, .cmdk-in input { font-size: 16px !important; }
+  body.has-reset .count-pill { display: none; }
+  .search-wrap { min-width: 0; }
+  .reset-btn, .filter-btn { padding: 0 10px; }
+}
+
+/* Reset: back to the starting view (clears search, filters, sort and the picked fund) */
+.reset-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; flex-shrink: 0;
+  border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface);
+  color: var(--text); font-size: 12.5px; font-weight: 500; cursor: pointer;
+}
+.reset-btn:hover { background: var(--hover); }
+#clear-btn { display: none !important; }
+
+.sum-tag { margin-left:4px; font-size:9.5px; font-weight:500; color:var(--muted); border:1px solid var(--border); border-radius:4px; padding:0 3px; vertical-align:1px; }
+</style>
+</head>
+<body>
+
+<!-- Maintenance overlay (shown automatically when nav data can't be loaded, e.g. mid-upload) -->
+<div id="maintenance-overlay" style="display:none">
+  <div class="maint-card">
+    <div class="maint-icon"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l2.5 2.5"/><circle cx="12" cy="12" r="9"/></svg></div>
+    <div class="maint-title" data-i18n="maintTitle">Sorry, we're updating the data</div>
+    <div class="maint-sub" data-i18n="maintSub">We'll be back shortly</div>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l5-5 4 3 7-8"/></svg></div>
+    <div style="min-width:0">
+      <div class="h-toprow">
+        <span class="h-title" data-i18n="title">NAV Performance Report</span>
+        <span class="h-tag" data-i18n="internal">Internal use only</span>
+      </div>
+      <div class="h-sub"><span data-i18n="source">Source: LSEG Refinitiv Data Platform</span> · <span data-i18n="createdBy">Created by GBS Fund Research</span> · <span data-i18n="version">Version 4.0 Beta</span></div>
+    </div>
+  </div>
+  <div class="h-right">
+    <div class="h-meta"><span class="mono" id="total-funds">—</span> <span data-i18n="funds">funds</span></div>
+    <div class="mono" id="upd-date">—</div>
+  </div>
+</header>
+
+<!-- Tabs -->
+<nav class="tabbar" role="tablist">
+  <button class="tab-btn active" role="tab" data-tab="nav" onclick="switchTab('nav')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg><span data-i18n="tabNav">NAV Report</span></button>
+  <button class="tab-btn" role="tab" data-tab="holiday" onclick="switchTab('holiday')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg><span data-i18n="tabHoliday">Fund Holiday Calendar</span></button>
+  <div class="tab-tools">
+    <button type="button" class="jump-btn" onclick="openCmdk()" aria-label="Jump to fund"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span class="jb-txt" data-i18n="jumpFund">Jump to fund</span><kbd>Ctrl K</kbd></button>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <button type="button" data-lang="en" onclick="setLang('en')">EN</button>
+      <button type="button" data-lang="th" onclick="setLang('th')">TH</button>
+    </div>
+    <button type="button" class="icon-btn" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Light / dark">
+      <svg class="ico theme-light-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      <svg class="ico theme-dark-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+
+<div id="tab-nav">
+
+<!-- Filter bar -->
+<div class="filterbar">
+  <div class="filterbar-inner">
+    <!-- Search -->
+    <div class="search-wrap">
+      <span class="search-icon"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+      <input type="search" id="search" placeholder="Search fund…" data-i18n-ph="searchFund" autocomplete="off">
+      <kbd class="kbd" title="Press / to search">/</kbd>
+    </div>
+    <button type="button" class="reset-btn" id="reset-btn" onclick="resetView()" hidden><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg><span data-i18n="reset">Reset</span></button>
+
+    <!-- Desktop filters -->
+    <div class="ss-wrap desktop-only" id="ss-type-wrap">
+      <input class="ss-input" id="ss-type-input" placeholder="All Types" readonly>
+      <div class="ss-dropdown" id="ss-type-dd">
+        <input class="ss-search" id="ss-type-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-type-list"></div>
+      </div>
+    </div>
+
+    <div class="ss-wrap desktop-only" id="ss-style-wrap">
+      <input class="ss-input" id="ss-style-input" placeholder="All Styles" readonly>
+      <div class="ss-dropdown" id="ss-style-dd">
+        <input class="ss-search" id="ss-style-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-style-list"></div>
+      </div>
+    </div>
+
+    <div class="ss-wrap desktop-only" id="ss-cls-wrap">
+      <input class="ss-input" id="ss-cls-input" placeholder="All Classifications" readonly>
+      <div class="ss-dropdown" id="ss-cls-dd">
+        <input class="ss-search" id="ss-cls-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-cls-list"></div>
+      </div>
+    </div>
+
+    <div class="ss-wrap desktop-only" id="ss-hl-wrap">
+      <input class="ss-input" id="ss-hl-input" placeholder="All Highlights" readonly>
+      <div class="ss-dropdown" id="ss-hl-dd">
+        <input class="ss-search" id="ss-hl-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-hl-list"></div>
+      </div>
+    </div>
+
+    <div class="ss-wrap desktop-only" id="ss-fh-wrap">
+      <input class="ss-input" id="ss-fh-input" placeholder="All Fund Holiday" readonly>
+      <div class="ss-dropdown" id="ss-fh-dd">
+        <div class="fh-note"></div>
+        <input class="ss-search" id="ss-fh-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-fh-list"></div>
+      </div>
+    </div>
+
+    <!-- Momentum filter -->
+    <div class="mom-filter-wrap desktop-only">
+      <span class="mom-label" data-i18n="momentumColon">Momentum:</span>
+      <div class="mom-seg">
+        <button class="mom-btn mom-btn-all" data-mom="" onclick="setMom(this)"><span data-i18n="all">All</span></button>
+        <button class="mom-btn" data-mom="Strong" onclick="setMom(this)"><span data-i18n="momStrong">Strong</span></button>
+        <button class="mom-btn" data-mom="Rising" onclick="setMom(this)"><span data-i18n="momRising">Rising</span></button>
+        <button class="mom-btn" data-mom="Fading" onclick="setMom(this)"><span data-i18n="momFading">Fading</span></button>
+        <button class="mom-btn" data-mom="Neutral" onclick="setMom(this)"><span data-i18n="momNeutral">Neutral</span></button>
+      </div>
+    </div>
+
+    <button class="clear-btn desktop-only" id="clear-btn" onclick="clearFilters()" style="display:none"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span data-i18n="clear">Clear</span></button>
+    <button class="filter-btn" onclick="toggleFilters()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg><span data-i18n="filter">Filter</span></button>
+    <span class="count-pill" id="count-pill">—</span>
+  </div>
+
+  <!-- Mobile drawer -->
+  <div class="filter-drawer" id="filter-drawer">
+    <div class="ss-wrap" style="width:100%">
+      <input class="ss-input" id="ss-mtype-input" placeholder="All Types" readonly>
+      <div class="ss-dropdown" id="ss-mtype-dd">
+        <input class="ss-search" id="ss-mtype-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-mtype-list"></div>
+      </div>
+    </div>
+    <div class="ss-wrap" style="width:100%">
+      <input class="ss-input" id="ss-mstyle-input" placeholder="All Styles" readonly>
+      <div class="ss-dropdown" id="ss-mstyle-dd">
+        <input class="ss-search" id="ss-mstyle-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-mstyle-list"></div>
+      </div>
+    </div>
+    <div class="ss-wrap" style="width:100%">
+      <input class="ss-input" id="ss-mcls-input" placeholder="All Classifications" readonly>
+      <div class="ss-dropdown" id="ss-mcls-dd">
+        <input class="ss-search" id="ss-mcls-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-mcls-list"></div>
+      </div>
+    </div>
+    <div class="ss-wrap" style="width:100%">
+      <input class="ss-input" id="ss-mhl-input" placeholder="All Highlights" readonly>
+      <div class="ss-dropdown" id="ss-mhl-dd">
+        <input class="ss-search" id="ss-mhl-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-mhl-list"></div>
+      </div>
+    </div>
+    <div class="ss-wrap" style="width:100%">
+      <input class="ss-input" id="ss-mfh-input" placeholder="All Fund Holiday" readonly>
+      <div class="ss-dropdown" id="ss-mfh-dd">
+        <div class="fh-note"></div>
+        <input class="ss-search" id="ss-mfh-search" placeholder="Search…" data-i18n-ph="searchDots">
+        <div class="ss-list" id="ss-mfh-list"></div>
+      </div>
+    </div>
+    <div style="width:100%">
+      <div class="mom-label" style="margin-bottom:6px" data-i18n="momentumColon">Momentum:</div>
+      <div class="mom-seg">
+        <button class="mom-btn mom-btn-all" data-mom="" onclick="setMom(this)"><span data-i18n="all">All</span></button>
+        <button class="mom-btn" data-mom="Strong" onclick="setMom(this)"><span data-i18n="momStrong">Strong</span></button>
+        <button class="mom-btn" data-mom="Rising" onclick="setMom(this)"><span data-i18n="momRising">Rising</span></button>
+        <button class="mom-btn" data-mom="Fading" onclick="setMom(this)"><span data-i18n="momFading">Fading</span></button>
+        <button class="mom-btn" data-mom="Neutral" onclick="setMom(this)"><span data-i18n="momNeutral">Neutral</span></button>
+      </div>
+    </div>
+    <button class="ghost-btn" onclick="clearFilters()"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg><span data-i18n="clear">Clear</span></button>
+  </div>
+</div>
+
+<!-- Summary: Top gainers | Top losers | Recommended | Monthly Pick -->
+<section class="sum" id="summary">
+  <div class="sum-tile" id="sum-mon">
+    <div class="sum-h"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="M9 15l2 2 4-4"/></svg><span data-i18n="colMon">Monthly Pick</span> <span class="sum-n" id="sum-mon-n"></span><span class="sum-per">%MTD</span></div>
+    <div class="sum-list" id="sum-mon-list"></div>
+  </div>
+  <div class="sum-tile" id="sum-rec">
+    <div class="sum-h"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6L12 16.3 6.6 19.3l1.3-6L3.3 9.2l6.1-.6z"/></svg><span data-i18n="colRec">Recommended</span> <span class="sum-n" id="sum-rec-n"></span><span class="sum-per">%MTD</span></div>
+    <div class="sum-list" id="sum-rec-list"></div>
+  </div>
+  <div class="sum-tile" id="sum-gain">
+    <div class="sum-h"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span data-i18n="sumGain">Top gainers</span> <span class="sum-per">%MTD</span></div>
+    <div class="sum-list" id="sum-gain-list"></div>
+  </div>
+  <div class="sum-tile" id="sum-loss">
+    <div class="sum-h"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/></svg><span data-i18n="sumLoss">Top losers</span> <span class="sum-per">%MTD</span></div>
+    <div class="sum-list" id="sum-loss-list"></div>
+  </div>
+</section>
+
+<!-- List (left) + detail panel (right) -->
+<div class="split">
+  <div class="fl">
+    <div class="fl-bar">
+      <div class="per-seg" id="per-seg" role="group" aria-label="Return period">
+        <button type="button" data-p="pct1d">1D</button>
+        <button type="button" data-p="pct1w">1W</button>
+        <button type="button" data-p="pct1m">1M</button>
+        <button type="button" data-p="pct3m">3M</button>
+        <button type="button" data-p="pct1y">1Y</button>
+      </div>
+      <select class="fl-sort" id="fl-sort" aria-label="Sort">
+        <option value="default" data-i18n="sortDefault">Default order</option>
+        <option value="high" data-i18n="sortHigh">Return: high to low</option>
+        <option value="low" data-i18n="sortLow">Return: low to high</option>
+        <option value="code" data-i18n="sortCode">Fund code A–Z</option>
+        <option value="mom" data-i18n="sortMom">Momentum</option>
+      </select>
+    </div>
+    <div class="fl-head"><span data-i18n="thFund">Fund Code</span><span><span id="fl-per-lbl">1M</span> · NAV</span></div>
+    <div class="fl-list" id="fl-list">
+      <div class="state-msg"><div class="spinner"></div><div data-i18n="loading">Loading…</div></div>
+    </div>
+  </div>
+  <aside class="fd" id="fd" aria-live="polite"></aside>
+</div>
+<div class="fd-backdrop" id="fd-backdrop" onclick="closeDetail()"></div>
+
+</div><!-- /#tab-nav -->
+
+<!-- Fund Holiday calendar tab -->
+<div id="tab-holiday" class="holiday-page" hidden>
+  <div class="hol-toolbar">
+    <div class="hol-search">
+      <span class="search-icon"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span>
+      <input id="hol-search" list="hol-fund-list" placeholder="Search fund code, e.g. LHLONGEVITY" data-i18n-ph="holSearchPh" autocomplete="off">
+      <button type="button" class="hol-clear" id="hol-clear" onclick="clearHolSearch()" aria-label="Clear" hidden><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <datalist id="hol-fund-list"></datalist>
+    </div>
+    <div class="hol-yearnav">
+      <button type="button" onclick="changeHolYear(-1)" aria-label="Previous year"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <span id="hol-year">—</span>
+      <button type="button" onclick="changeHolYear(1)" aria-label="Next year"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button type="button" class="hol-today" onclick="goHolToday()" data-i18n="today">Today</button>
+    </div>
+  </div>
+  <div class="hol-legend">
+    <span><i class="lg-fund"></i><span data-i18n="legFund">Selected fund's holiday</span></span>
+    <span><i class="lg-any"></i><span data-i18n="legAny">Some funds closed (click to see list)</span></span>
+    <span><i class="lg-today"></i><span data-i18n="today">Today</span></span>
+    <span id="hol-range"></span>
+  </div>
+  <div class="hol-layout">
+    <div class="hol-cal" id="hol-cal"></div>
+    <aside class="hol-panel" id="hol-panel"></aside>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Compare bar -->
+<div id="compare-bar">
+  <span class="compare-bar-text" id="compare-bar-label"></span>
+  <div class="compare-bar-actions">
+    <button class="compare-btn compare-btn-secondary" onclick="clearCompare()" data-i18n="clear">Clear</button>
+    <button class="compare-btn compare-btn-primary" id="compare-open-btn" onclick="toggleCompareMode()">Compare</button>
+  </div>
+</div>
+
+<!-- Ctrl+K quick search -->
+<div class="cmdk" id="cmdk" hidden>
+  <div class="cmdk-box" role="dialog" aria-label="Jump to fund">
+    <div class="cmdk-in"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="cmdk-input" autocomplete="off" placeholder="Type a fund code or name" data-i18n-ph="cmdkPh"><kbd>Esc</kbd></div>
+    <div class="cmdk-list" id="cmdk-list"></div>
+    <div class="cmdk-foot"><span>↑ ↓ <span data-i18n="cmdkMove">to move</span></span><span>Enter <span data-i18n="cmdkOpen">to open</span></span></div>
+  </div>
+</div>
+
+<!-- Momentum tooltip -->
+<div id="mom-backdrop" onclick="hideMomTip()"></div>
+<div id="mom-tip">
+  <div class="tip-header" id="tip-header">
+    <span class="tip-tap-hint" data-i18n="tapClose">tap outside to close</span>
+    <span id="tip-stage"></span>
+  </div>
+  <div class="tip-actions" id="tip-actions"></div>
+  <div class="tip-disclaimer"><span data-i18n="techOnly">Basic technical information only.</span><br><span data-i18n="askAnalyst">Please contact an analyst for more details.</span></div>
+</div>
+
+<script>
+function debounce(fn, wait) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+}
+
+// ── Language (EN default / TH) ────────────────────────────────
+// Everything on screen is translated except fund codes and fund / master-fund names.
+let LANG = (() => { try { return localStorage.getItem('navLang') === 'th' ? 'th' : 'en'; } catch { return 'en'; } })();
+
+const I18N = {
+  en: {
+    title: 'NAV Performance Report', internal: 'Internal use only',
+    source: 'Source: LSEG Refinitiv Data Platform', version: 'Version 4.0 Beta',
+    createdBy: 'Created by GBS Fund Research', funds: 'funds',
+    tabNav: 'NAV Report', tabHoliday: 'Fund Holiday Calendar',
+    searchFund: 'Search fund…', searchDots: 'Search…', momentumColon: 'Momentum:', all: 'All',
+    momStrong: 'Strong', momRising: 'Rising', momFading: 'Fading', momNeutral: 'Neutral',
+    clear: 'Clear', filter: 'Filter',
+    colRec: 'Recommended', colMon: 'Monthly Pick', colTop: 'Performance Top 1 Month',
+    selectCompare: 'Select to compare',
+    thFund: 'Fund Code', thType: 'Type', thStyle: 'Style', thCls: 'Classification', thNav: 'NAV / Price', thMom: 'Momentum',
+    techOnly: 'Basic technical information only.', askAnalyst: 'Please contact an analyst for more details.',
+    tapClose: 'tap outside to close', loading: 'Loading…',
+    maintTitle: "Sorry, we're updating the data", maintSub: "We'll be back shortly",
+    phTypes: 'All Types', phStyles: 'All Styles', phCls: 'All Classifications', phHL: 'All Highlights', phFH: 'All Fund Holiday',
+    nSelected: '{n} selected',
+    hlRec: 'Recommended', hlMon: 'Monthly Pick',
+    fhToday: 'Closed today ({d})', fhNext: 'Closed next business day ({d})',
+    fhWeek: 'Closed this week ({d})', fhNextWeek: 'Closed next week ({d})',
+    badgeToday: 'Closed today ({d})', badgeNext: 'Closed next business day ({d})',
+    badgeWeek: 'Closed this week ({d})', badgeNextWeek: 'Closed next week ({d})',
+    fhNote: 'Holiday data: {range}',
+    noResults: 'No results.', countFunds: '{n} funds', noData: 'No Data',
+    maxCompare: 'You can compare up to {n} funds', comparing: 'Comparing {n} funds',
+    nSelectedCompare: '{n} selected (max {max})', compareBtn: 'Compare', showAll: 'Show All Funds',
+    navPrice: 'Price', navUnit: 'NAV/Unit',
+    typeMF: 'Mutual Fund', typeETF: 'ETF', styleActive: 'Active', stylePassive: 'Passive',
+    momStrongFull: 'Strong Momentum', momRisingFull: 'Rising Momentum',
+    momFadingFull: 'Momentum Fading', momNeutralFull: 'Neutral Momentum',
+    holSearchPh: 'Search fund code, e.g. LHLONGEVITY', today: 'Today',
+    legFund: "Selected fund's holiday", legAny: 'Some funds closed (click to see list)',
+    holRange: 'Data covers {from} – {to} ({n} funds)', holNoData: 'No holiday data yet (upload Fund_data/Fundholiday_MMYYYY.xlsx)',
+    holFundClosed: '{code} closed', holClosedCount: '{n} funds closed',
+    holTotal: '{n} holidays in total · {u} upcoming', holNoUpcoming: 'No upcoming holidays in the current data',
+    holPast: 'Past holidays ({n})', holSearchResult: 'Results for "{q}"', holPick: 'Pick a fund to see its holidays',
+    holNotFound: 'This fund is not in the holiday data',
+    holUpcomingTitle: 'Upcoming fund holidays', holHint: 'Type a fund code to see its holidays, or click a date to see which funds are closed',
+    holNoUpcomingAll: 'No upcoming holidays yet — upload Fund_data/Fundholiday_MMYYYY.xlsx',
+    holCountShort: '{n} funds', holClosedN: '{n} funds closed', holDayFilter: 'Filter fund codes…',
+    holNoneClosed: 'No funds closed on this day',
+    sumGain: 'Top gainers', sumLoss: 'Top losers', sumNone: 'None right now',
+    jumpFund: 'Jump to fund', cmdkPh: 'Type a fund code or name', cmdkNone: 'No matching funds', cmdkMove: 'to move', cmdkOpen: 'to open',
+    sortDefault: 'Default order', sortHigh: 'Return: high to low', sortLow: 'Return: low to high', sortCode: 'Fund code A–Z', sortMom: 'Momentum',
+    fdPick: 'Select a fund to see its details', fdReturns: 'Returns', fdNoHol: 'No upcoming holidays in the data',
+    fdOpenCal: 'Open in holiday calendar', fdAdd: 'Add to compare', fdRemove: 'Remove from compare', fdClose: 'Close', reset: 'Reset'
+  },
+  th: {
+    title: 'รายงานผลการดำเนินงาน NAV', internal: 'ใช้ภายในเท่านั้น',
+    source: 'แหล่งข้อมูล: LSEG Refinitiv Data Platform', version: 'เวอร์ชัน 4.0 Beta',
+    createdBy: 'จัดทำโดย GBS Fund Research', funds: 'กองทุน',
+    tabNav: 'รายงาน NAV', tabHoliday: 'ปฏิทินวันหยุดกองทุน',
+    searchFund: 'ค้นหากองทุน…', searchDots: 'ค้นหา…', momentumColon: 'โมเมนตัม:', all: 'ทั้งหมด',
+    momStrong: 'แข็งแกร่ง', momRising: 'ขาขึ้น', momFading: 'อ่อนแรง', momNeutral: 'ทรงตัว',
+    clear: 'ล้าง', filter: 'ตัวกรอง',
+    colRec: 'กองทุนแนะนำ', colMon: 'กองทุนเด่นประจำเดือน', colTop: 'ผลตอบแทนสูงสุด 1 เดือน',
+    selectCompare: 'เลือกเพื่อเปรียบเทียบ',
+    thFund: 'รหัสกองทุน', thType: 'ประเภท', thStyle: 'สไตล์', thCls: 'กลุ่มกองทุน', thNav: 'NAV / ราคา', thMom: 'โมเมนตัม',
+    techOnly: 'เป็นเพียงข้อมูล Technical เบื้องต้นเท่านั้น', askAnalyst: 'ท่านสามารถสอบถามนักวิเคราะห์หากต้องการข้อมูลเพิ่มเติม',
+    tapClose: 'แตะด้านนอกเพื่อปิด', loading: 'กำลังโหลด…',
+    maintTitle: 'ขออภัย กำลังอยู่ระหว่างการ Update ข้อมูล', maintSub: 'โดยเราจะกลับมาในเร็ว ๆ นี้',
+    phTypes: 'ทุกประเภท', phStyles: 'ทุกสไตล์', phCls: 'ทุกกลุ่มกองทุน', phHL: 'ทุกไฮไลต์', phFH: 'วันหยุดกองทุนทั้งหมด',
+    nSelected: 'เลือก {n} รายการ',
+    hlRec: 'กองทุนแนะนำ', hlMon: 'กองทุนเด่นประจำเดือน',
+    fhToday: 'กองทุนที่หยุดในวันนี้ ({d})', fhNext: 'กองทุนที่หยุดในวันทำการถัดไป ({d})',
+    fhWeek: 'กองทุนที่หยุดในสัปดาห์นี้ ({d})', fhNextWeek: 'กองทุนที่หยุดในสัปดาห์หน้า ({d})',
+    badgeToday: 'กองทุนที่หยุดในวันนี้ ({d})', badgeNext: 'กองทุนนี้หยุดในวันทำการถัดไป ({d})',
+    badgeWeek: 'กองทุนที่หยุดในสัปดาห์นี้ ({d})', badgeNextWeek: 'กองทุนที่หยุดในสัปดาห์หน้า ({d})',
+    fhNote: 'ข้อมูลวันหยุด: {range}',
+    noResults: 'ไม่พบข้อมูล', countFunds: '{n} กองทุน', noData: 'ไม่มีข้อมูล',
+    maxCompare: 'เลือกเปรียบเทียบได้สูงสุด {n} กองทุน', comparing: 'กำลังเปรียบเทียบ {n} กองทุน',
+    nSelectedCompare: 'เลือกแล้ว {n} กองทุน (สูงสุด {max})', compareBtn: 'เปรียบเทียบ', showAll: 'แสดงทุกกองทุน',
+    navPrice: 'ราคา', navUnit: 'NAV/หน่วย',
+    typeMF: 'กองทุนรวม', typeETF: 'ETF', styleActive: 'เชิงรุก', stylePassive: 'เชิงรับ',
+    momStrongFull: 'โมเมนตัมแข็งแกร่ง', momRisingFull: 'โมเมนตัมขาขึ้น',
+    momFadingFull: 'โมเมนตัมอ่อนแรง', momNeutralFull: 'โมเมนตัมทรงตัว',
+    holSearchPh: 'ค้นหารหัสกองทุน เช่น LHLONGEVITY', today: 'วันนี้',
+    legFund: 'วันหยุดของกองทุนที่เลือก', legAny: 'มีกองทุนหยุด (คลิกเพื่อดูรายชื่อ)',
+    holRange: 'ข้อมูลครอบคลุม {from} – {to} ({n} กองทุน)', holNoData: 'ยังไม่มีข้อมูลวันหยุด (อัปโหลด Fund_data/Fundholiday_MMYYYY.xlsx)',
+    holFundClosed: '{code} หยุด', holClosedCount: 'กองทุนหยุด {n} กอง',
+    holTotal: 'วันหยุดทั้งหมด {n} วัน · กำลังจะมาถึง {u} วัน', holNoUpcoming: 'ไม่มีวันหยุดที่กำลังจะมาถึงในข้อมูลปัจจุบัน',
+    holPast: 'วันหยุดที่ผ่านมา ({n})', holSearchResult: 'ผลการค้นหา "{q}"', holPick: 'เลือกกองทุนเพื่อดูวันหยุด',
+    holNotFound: 'ไม่พบกองทุนนี้ในข้อมูลวันหยุด',
+    holUpcomingTitle: 'วันหยุดกองทุนที่กำลังจะมาถึง', holHint: 'พิมพ์รหัสกองทุนเพื่อดูวันหยุด หรือคลิกวันที่บนปฏิทินเพื่อดูกองทุนที่หยุด',
+    holNoUpcomingAll: 'ยังไม่มีข้อมูลวันหยุดที่กำลังจะมาถึง — อัปโหลดไฟล์ Fund_data/Fundholiday_MMYYYY.xlsx',
+    holCountShort: '{n} กอง', holClosedN: 'กองทุนที่หยุด {n} กอง', holDayFilter: 'กรองรหัสกองทุน…',
+    holNoneClosed: 'ไม่มีกองทุนหยุดในวันนี้',
+    sumGain: 'ผลตอบแทนสูงสุด', sumLoss: 'ผลตอบแทนต่ำสุด', sumNone: 'ยังไม่มีรายการ',
+    jumpFund: 'ไปที่กองทุน', cmdkPh: 'พิมพ์รหัสหรือชื่อกองทุน', cmdkNone: 'ไม่พบกองทุน', cmdkMove: 'เลื่อน', cmdkOpen: 'เปิด',
+    sortDefault: 'ลำดับเริ่มต้น', sortHigh: 'ผลตอบแทน: มากไปน้อย', sortLow: 'ผลตอบแทน: น้อยไปมาก', sortCode: 'รหัสกองทุน A–Z', sortMom: 'โมเมนตัม',
+    fdPick: 'เลือกกองทุนเพื่อดูรายละเอียด', fdReturns: 'ผลตอบแทน', fdNoHol: 'ไม่มีวันหยุดที่กำลังจะมาถึงในข้อมูล',
+    fdOpenCal: 'ดูในปฏิทินวันหยุด', fdAdd: 'เพิ่มเพื่อเปรียบเทียบ', fdRemove: 'นำออกจากการเปรียบเทียบ', fdClose: 'ปิด', reset: 'รีเซ็ต'
+  }
+};
+
+// Classification names come from the Excel data in English; Thai labels for display only
+// (filtering still uses the original English value). Unknown values fall back to English.
+const CLS_TH = {
+  'AI': 'ปัญญาประดิษฐ์ (AI)',
+  'Agribusiness': 'ธุรกิจการเกษตร',
+  'Asia, Asia ex Japan Equity (Active Fund)': 'หุ้นเอเชีย / เอเชียไม่รวมญี่ปุ่น (เชิงรุก)',
+  'Asia, Emerging, China, Other Fixed Income (Active Fund)': 'ตราสารหนี้เอเชีย ตลาดเกิดใหม่ จีน และอื่น ๆ (เชิงรุก)',
+  'BRIC, BIC, LATAM (Active Fund)': 'หุ้น BRIC, BIC, ละตินอเมริกา (เชิงรุก)',
+  'Blockchain and Digital Assets': 'บล็อกเชนและสินทรัพย์ดิจิทัล',
+  'China Equity (Active Fund)': 'หุ้นจีน (เชิงรุก)',
+  'China Technology': 'เทคโนโลยีจีน',
+  'Clean Energy': 'พลังงานสะอาด',
+  'Cryptocurrency ***(UI)***': 'คริปโทเคอร์เรนซี ***(UI)***',
+  'Cybersecurity': 'ความปลอดภัยไซเบอร์',
+  'Defense': 'กลาโหม',
+  'EV': 'ยานยนต์ไฟฟ้า (EV)',
+  'Electrification and Smart Grid': 'ระบบไฟฟ้าและสมาร์ทกริด',
+  'Emerging Markets Equity (Active Fund)': 'หุ้นตลาดเกิดใหม่ (เชิงรุก)',
+  'Emerging Markets Equity (Passive Fund)': 'หุ้นตลาดเกิดใหม่ (เชิงรับ)',
+  'Energy': 'พลังงาน',
+  'Entertainment': 'ความบันเทิง',
+  'European Equity (Active Fund)': 'หุ้นยุโรป (เชิงรุก)',
+  'Financials': 'การเงิน',
+  'Foreign Property, REITs, Infrastructure (Active Fund)': 'อสังหาฯ REITs และโครงสร้างพื้นฐานต่างประเทศ (เชิงรุก)',
+  'Global Equity (Active Fund)': 'หุ้นโลก (เชิงรุก)',
+  'Global Fixed Income (Active Fund)': 'ตราสารหนี้โลก (เชิงรุก)',
+  'Gold': 'ทองคำ',
+  'Gold Miners, Silver Miners and Copper Miners': 'เหมืองทองคำ เงิน และทองแดง',
+  'Healthcare and Biotech': 'สุขภาพและเทคโนโลยีชีวภาพ',
+  'Hong Kong Equity': 'หุ้นฮ่องกง',
+  'India Equity (Active Fund)': 'หุ้นอินเดีย (เชิงรุก)',
+  'India Equity (Passive Fund)': 'หุ้นอินเดีย (เชิงรับ)',
+  'Japan Equity (Active Fund)': 'หุ้นญี่ปุ่น (เชิงรุก)',
+  'Japan Technology': 'เทคโนโลยีญี่ปุ่น',
+  'Korea Equity (Active Fund)': 'หุ้นเกาหลี (เชิงรุก)',
+  'Korea Equity (Passive Fund)': 'หุ้นเกาหลี (เชิงรับ)',
+  'Lifestyle': 'ไลฟ์สไตล์',
+  'Nuclear and Uranium': 'นิวเคลียร์และยูเรเนียม',
+  'Oil': 'น้ำมัน',
+  'Online Retail': 'ค้าปลีกออนไลน์',
+  'Quantum': 'ควอนตัม',
+  'Rare Earth': 'แร่หายาก',
+  'Resources': 'ทรัพยากร',
+  'Robotics': 'หุ่นยนต์',
+  'Semiconductor and Memory': 'เซมิคอนดักเตอร์และหน่วยความจำ',
+  'Space': 'อวกาศ',
+  'Taiwan Equity (Passive Fund)': 'หุ้นไต้หวัน (เชิงรับ)',
+  'Technology Equity (Active Fund)': 'หุ้นเทคโนโลยี (เชิงรุก)',
+  'U.S. Equity (Active Fund)': 'หุ้นสหรัฐฯ (เชิงรุก)',
+  'U.S. Fixed Income (Active Fund)': 'ตราสารหนี้สหรัฐฯ (เชิงรุก)',
+  'Vietnam Equity (Active Fund)': 'หุ้นเวียดนาม (เชิงรุก)'
+};
+
+function t(key, p = {}) {
+  const s = I18N[LANG][key] ?? I18N.en[key] ?? key;
+  return s.replace(/\{(\w+)\}/g, (_, k) => (p[k] ?? ''));
+}
+function trCls(c)   { return (LANG === 'th' && CLS_TH[c]) || c || ''; }
+function trType(c)  { return c === 'ETF' ? t('typeETF') : c === 'Mutual Fund' ? t('typeMF') : (c || ''); }
+function trStyle(s) { return s === 'Active' ? t('styleActive') : s === 'Passive' ? t('stylePassive') : (s || ''); }
+function trNavLbl(l){ return l === 'Price' ? t('navPrice') : l === 'NAV/Unit' ? t('navUnit') : (l || ''); }
+function trMom(m) {
+  const k = momKey(m);
+  return k ? t('mom' + k + 'Full') : (m || '');
+}
+// Dates always use the Gregorian year (no Buddhist Era), in the current language
+function dtf(opts) {
+  return new Intl.DateTimeFormat(LANG === 'th' ? 'th-TH' : 'en-GB', { calendar: 'gregory', numberingSystem: 'latn', ...opts });
+}
+
+function applyI18n() {
+  document.documentElement.lang = LANG;
+  document.title = t('title');
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));
+}
+
+function setLang(lang) {
+  if (lang === LANG) return;
+  LANG = lang;
+  try { localStorage.setItem('navLang', lang); } catch {}
+  applyI18n();
+  hideMomTip();
+  Object.values(ssHandles).forEach(h => h && h.relabel && h.relabel());
+  if (allFunds.length) {
+    setHeaderDate();
+    updateFhNotes();
+    render();
+    renderFeatureCards();
+    initHolidayData();
+  }
+  if (currentTab === 'holiday') renderHolidayCal();
+  updateCompareBar();
+  updateStickyOffset();
+}
+
+const ACT = {
+  followBuy:   { en: ['Follow Buy', 'Buy at the current price level'], th: ['ซื้อตาม', 'ซื้อในระดับราคานี้ได้ทันที'] },
+  accumulate:  { en: ['Accumulation', 'Accumulate gradually across price levels / split entries'], th: ['ทยอยสะสม', 'ทยอยสะสมตามระดับราคา / แบ่งไม้เข้า'] },
+  buyDip:      { en: ['Buy on Dip', 'Buy when the price pulls back 5 - 10%'], th: ['ซื้อเมื่อราคาย่อตัว', 'ซื้อเมื่อราคาปรับตัวลดลงมา 5 - 10%'] },
+  takeProfit:  { en: ['Take Profit', 'Sell to lock in profit'], th: ['ขายทำกำไร', 'ขายเพื่อทำกำไร'] },
+  cutLoss:     { en: ['Cut Loss / Reduce Position', 'Sell now to limit losses'], th: ['ตัดขาดทุน / ลดสัดส่วน', 'ขายทันทีเพื่อจำกัดการขาดทุน'] },
+  waitHold:    { en: ['Wait and See / Hold', 'Wait and see / keep holding for a better entry'], th: ['รอดูสถานการณ์ / ถือต่อ', 'รอดูสถานการณ์ / ถือต่อ รอจังหวะที่เหมาะสม'] }
+};
+const MOMENTUM_ACTIONS = {
+  Rising:  { label: 'Rising Momentum',  bg: '#f59e0b', actions: ['followBuy', 'accumulate'] },
+  Strong:  { label: 'Strong Momentum',  bg: '#00b050', actions: ['followBuy', 'buyDip'] },
+  Fading:  { label: 'Momentum Fading',  bg: '#e74c3c', actions: ['takeProfit', 'cutLoss'] },
+  Neutral: { label: 'Neutral Momentum', bg: '#9ca3af', actions: ['accumulate', 'waitHold'] }
+};
+
+function normCode(s) {
+  return s.replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase();
+}
+// Recommend / Monthly Pick lists are loaded live from Fund_data/recommend.txt and Fund_data/monthly_pick.txt
+// (one fund code per line, '#' for comments) so they can be edited without touching this file.
+let RECOMMEND_CODES = new Set();
+let MONTHLY_CODES = new Set();
+async function loadCodeList(file) {
+  try {
+    const res = await fetch(file + '?t=' + Date.now());
+    if (!res.ok) throw new Error();
+    const text = await res.text();
+    return new Set(
+      text.split('\n')
+        .map(l => l.trim())
+        .filter(l => l && !l.startsWith('#'))
+        .map(normCode)
+    );
+  } catch { return new Set(); }
+}
+async function loadHighlightLists() {
+  [RECOMMEND_CODES, MONTHLY_CODES] = await Promise.all([
+    loadCodeList('Fund_data/recommend.txt'),
+    loadCodeList('Fund_data/monthly_pick.txt')
+  ]);
+}
+function checkHL(code, set) {
+  if (!code) return false;
+  return code.split('/').some(t => { const k = normCode(t); return k && set.has(k); });
+}
+
+const THEMATIC_MAP_RAW = {
+  'A-ASEMI':'AI Value Chain','ASP-CSEMI':'AI Value Chain','A-GRID':'AI Value Chain','A-HUMANOID':'AI Value Chain',
+  'A-JEDI':'Space','A-RING':'Commodities','A-SLVP':'Commodities',
+  'ASP-AIEQ':'Technology & Innovation','ASP-DIGIBLOC':'Technology & Innovation',
+  'ASP-GOLD':'Commodities','ASP-IHEALTH':'Healthcare & Biotech','ASP-OIL':'Commodities',
+  'ASP-POWER':'AI Value Chain','DAOL-AGRI':'Commodities','DAOL-AQUA':'Commodities',
+  'DAOL-CHINABIO':'Healthcare & Biotech','DAOL-COPPER':'Commodities',
+  'DAOL-CYBER':'Technology & Innovation','DAOL-CYBERSECURE':'Technology & Innovation',
+  'DAOL-AIINFRA':'AI Value Chain','DAOL-DAPP':'Technology & Innovation','DAOL-ENERGY':'Commodities',
+  'DAOL-EVOSEMI':'AI Value Chain','DAOL-GALAXY':'Space','DAOL-GAS':'Commodities',
+  'DAOL-GIHEALTH':'Healthcare & Biotech','DAOL-GOLD':'Commodities',
+  'DAOL-GOLDXJ':'Commodities','DAOL-GSECURE':'Technology & Innovation',
+  'DAOL-GTECH':'Technology & Innovation','DAOL-HYDROGEN':'Clean Energy',
+  'DAOL-NUCLEAR':'AI Value Chain','DAOL-QUANTUM':'AI Value Chain',
+  'DAOL-RARE':'Commodities','DAOL-SILVER':'Commodities','DAOL-SUPERAI':'AI Value Chain',
+  'DAOL-VOLT':'AI Value Chain','ES-AUTOMATION':'AI Value Chain',
+  'ES-FINTECH':'Technology & Innovation','ES-GENOME':'Healthcare & Biotech',
+  'ES-GGREEN':'Clean Energy','ES-GINNO-A':'Technology & Innovation',
+  'ES-GOLD':'Commodities','ES-GOLDS':'Commodities','ES-GRID':'AI Value Chain',
+  'ES-GTECH':'Technology & Innovation','ES-HEALTHCARE':'Healthcare & Biotech',
+  'ES-INTERNET':'Technology & Innovation','ES-OIL':'Commodities',
+  'FP HCARE-A':'Healthcare & Biotech','FP HCARE-D':'Healthcare & Biotech',
+  'FP SENERGY-A':'Clean Energy','I-OIL':'Commodities','IGOLD-G':'Commodities',
+  'K-ATECH':'Technology & Innovation','K-GHEALTH':'Healthcare & Biotech',
+  'K-GHEALTH(UH)':'Healthcare & Biotech','K-GOLD-A(A)':'Commodities',
+  'K-GOLD-A(D)':'Commodities','K-GTECH':'Technology & Innovation',
+  'K-OIL':'Commodities','KF-ATECH':'AI Value Chain','KF-GOLD':'Commodities',
+  'KF-HGOLD':'Commodities','KF-OIL':'Commodities','KFCLIMA-A':'Clean Energy',
+  'KFCYBER-A':'Technology & Innovation','KFGTECH-A':'Technology & Innovation',
+  'KFHEALTH-A':'Healthcare & Biotech','KFHHCARE-A':'Healthcare & Biotech',
+  'KFHTECH-A':'Technology & Innovation','KFINNO-A':'Technology & Innovation',
+  'KKP GHC':'Healthcare & Biotech','KKP SEMICON-H':'AI Value Chain','KTBAI':'AI Value Chain','KT-BAI':'AI Value Chain',
+  'KKP TECH-H':'Technology & Innovation','KT-AGRIANDFOOD':'Commodities',
+  'KT-BLOCKCHAIN-A':'Technology & Innovation','KT-ENERGY':'Commodities',
+  'KT-EUROTECH-A':'Technology & Innovation','KT-GOLD':'Commodities',
+  'KT-GOLDUH-A':'Commodities','KT-GREEN-A':'Clean Energy',
+  'KT-HEALTHCARE-A':'Healthcare & Biotech','KT-MINING':'Commodities',
+  'KT-OIL':'Commodities','KT-PRECIOUS':'Commodities',
+  'KT-TECHNOLOGY-A':'Technology & Innovation','KT-WTAI-A':'Technology & Innovation',
+  'LHAI-A':'AI Value Chain','LHAI-D':'AI Value Chain','LHCOPPER':'Commodities',
+  'LHCYBER-A':'Technology & Innovation','LHCYBER-D':'Technology & Innovation',
+  'LHDIGITAL-A':'Technology & Innovation','LHDIGITAL-D':'Technology & Innovation',
+  'LHDRAM':'AI Value Chain','LHGAS':'Commodities',
+  'LHGBLOCK-A':'Technology & Innovation','LHGBLOCK-D':'Technology & Innovation',
+  'LHGOLD-A':'Commodities','LHGOLD-D':'Commodities',
+  'LHGREEN-A':'Clean Energy','LHGREEN-D':'Clean Energy',
+  'LHHEALTH-A':'Healthcare & Biotech','LHHUMANOID':'AI Value Chain',
+  'LHINNO-A':'Technology & Innovation','LHINNO-D':'Technology & Innovation',
+  'LHLONGEVITY':'Healthcare & Biotech','LHNUKZ-A':'AI Value Chain',
+  'LHNUKZ-D':'AI Value Chain','LHQTUM-A':'AI Value Chain','LHQTUM-D':'AI Value Chain',
+  'LHROBOTE-A':'Technology & Innovation','LHROBOTE-D':'Technology & Innovation',
+  'LHSEMICON-A':'AI Value Chain','LHSEMICON-D':'AI Value Chain',
+  'LHSOLAR':'AI Value Chain','LHSPACE-A':'Space','LHSPACE-D':'Space',
+  'M-MEM':'Technology & Innovation','M-META':'Technology & Innovation',
+  'MATECH-A':'AI Value Chain','MEGA10AI-A':'Technology & Innovation',
+  'MEGA10AICHINA-A':'AI Value Chain','MEGA10CHINATECH-A':'AI Value Chain',
+  'MEGA10CYBER-A':'Technology & Innovation','MEGA10HEALTH-A':'Healthcare & Biotech',
+  'MFTECH':'Technology & Innovation','MGTECH':'Technology & Innovation',
+  'MHEALTHG':'Healthcare & Biotech','MRENEW-A':'Clean Energy',
+  'MSILVER':'Commodities','ONE-MEDTECH':'Healthcare & Biotech',
+  'ONE-METAVERSE':'Technology & Innovation','ONE-RAREEARTH':'Commodities',
+  'PRINCIPAL GCLEAN-A':'AI Value Chain','PRINCIPAL GCLOUD-A':'Technology & Innovation',
+  'PRINCIPAL IGOLD-A':'Commodities','SCBAUTO(A)':'AI Value Chain',
+  'SCBBLOC(A)':'Technology & Innovation','SCBCLEANA':'Clean Energy',
+  'SCBDIGI':'Technology & Innovation','SCBFINTECH(A)':'Technology & Innovation',
+  'SCBGENOME(A)':'Healthcare & Biotech','SCBGHC':'Healthcare & Biotech',
+  'SCBGOLD':'Commodities','SCBGOLDH':'Commodities',
+  'SCBIHEALTH(A)':'Healthcare & Biotech','SCBINNO(A)':'Technology & Innovation',
+  'SCBNEXT(A)':'Technology & Innovation','SCBOIL':'Commodities',
+  'SCBRARE':'Commodities','SCBROBOA':'Technology & Innovation',
+  'SCBSEMI(A)':'AI Value Chain','TLGOLDPLUS':'Commodities',
+  'TLSEMICON-H':'AI Value Chain','TLSEMICON-UH':'AI Value Chain',
+  'TLTECH-H':'Technology & Innovation','TLTECH-UH':'Technology & Innovation',
+  'UBOT':'AI Value Chain','UCHI':'Healthcare & Biotech',
+  'UGSE':'Technology & Innovation','UOBSG-H':'Commodities',
+  'UOBSG-D':'Commodities','UOBSG-N':'Commodities',
+  'UOBSHC':'Healthcare & Biotech','UUSTECH':'Technology & Innovation',
+  'X-DATACENEQ':'AI Value Chain','X-JPTOPTECH':'Technology & Innovation',
+  'X-NUCTECH':'AI Value Chain','X-QUANTUM':'AI Value Chain',
+  'X-SPACE':'Space','X-VOLT':'AI Value Chain'
+};
+const THEMATIC_COLORS = {
+  'AI Value Chain':       'thm-ai',
+  'Clean Energy':         'thm-clean',
+  'Commodities':          'thm-comm',
+  'Healthcare & Biotech': 'thm-health',
+  'Space':                'thm-space',
+  'Technology & Innovation': 'thm-tech'
+};
+// Pre-build normalized lookup (upper, spaces around hyphens removed)
+const THEMATIC_NORM = {};
+for (const [k, v] of Object.entries(THEMATIC_MAP_RAW)) {
+  THEMATIC_NORM[k.replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase()] = v;
+}
+function getThematic(code) {
+  if (!code) return null;
+  const tokens = code.split('/');
+  for (const token of tokens) {
+    const key = token.replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase();
+    if (key && THEMATIC_NORM[key]) return THEMATIC_NORM[key];
+  }
+  return null;
+}
+function fmtThm(thm) {
+  if (!thm) return '';
+  return `<span class="thm-badge ${THEMATIC_COLORS[thm]||''}">${esc(thm)}</span>`;
+}
+
+// ── Fund Holiday (loaded live from Fundholiday.xlsx — no code changes needed monthly) ──
+let FUND_HOLIDAYS = {};
+let HOL_BY_DATE = {};
+let HOLIDAY_FILES = []; // which holiday files were found and merged
+let HOLIDAY_TODAY_STR = '', HOLIDAY_NEXT_STR = '', HOLIDAY_WEEK_START_STR = '', HOLIDAY_WEEK_END_STR = '';
+let HOLIDAY_NEXTWEEK_START_STR = '', HOLIDAY_NEXTWEEK_END_STR = '';
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function utcYmd(d) {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
+}
+function nextBusinessDay(d) {
+  const n = new Date(d);
+  do { n.setDate(n.getDate() + 1); } while (n.getDay() === 0 || n.getDay() === 6);
+  return n;
+}
+function weekEnd(d) {
+  const n = new Date(d);
+  const day = n.getDay(); // 0=Sun..6=Sat
+  const toFriday = (day === 0 || day === 6) ? -1 : 5 - day; // business week ends Friday; weekends -> no valid range
+  n.setDate(n.getDate() + toFriday);
+  return n;
+}
+function weekStart(d) {
+  const n = new Date(d);
+  const day = n.getDay();
+  const toMonday = day === 0 ? -6 : 1 - day;
+  n.setDate(n.getDate() + toMonday);
+  return n;
+}
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+function fmtHolidayDate(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return dtf({ day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+function fmtDateRange(startStr, endStr) {
+  const [ys, ms] = startStr.split('-');
+  const [ye, me] = endStr.split('-');
+  if (ys === ye && ms === me) {
+    return `${startStr.split('-')[2]} - ${fmtHolidayDate(endStr)}`;
+  }
+  return `${fmtHolidayDate(startStr)} - ${fmtHolidayDate(endStr)}`;
+}
+function fmtWeekDates(dates) {
+  if (!dates.length) return '';
+  if (dates.length === 1) return fmtHolidayDate(dates[0]);
+  const [y0, m0] = dates[0].split('-');
+  const sameMonth = dates.every(d => d.startsWith(`${y0}-${m0}-`));
+  if (sameMonth) {
+    const days = dates.map(d => d.split('-')[2]);
+    const last = days.pop();
+    const monthYear = fmtHolidayDate(dates[dates.length - 1]).split(' ').slice(1).join(' ');
+    return `${days.join(', ')} & ${last} ${monthYear}`;
+  }
+  const full = dates.map(fmtHolidayDate);
+  const last = full.pop();
+  return `${full.join(', ')} & ${last}`;
+}
+async function loadFundHolidays() {
+  const today = new Date();
+  HOLIDAY_TODAY_STR = ymd(today);
+  HOLIDAY_NEXT_STR = ymd(nextBusinessDay(today));
+  HOLIDAY_WEEK_START_STR = ymd(weekStart(today));
+  HOLIDAY_WEEK_END_STR = ymd(weekEnd(today));
+  HOLIDAY_NEXTWEEK_START_STR = ymd(addDays(weekStart(today), 7));
+  HOLIDAY_NEXTWEEK_END_STR = ymd(addDays(weekEnd(today), 7));
+
+  // Monthly files: Fund_data/Fundholiday_MMYYYY.xlsx (e.g. Fundholiday_102026.xlsx = Oct 2026).
+  // A static site can't list a folder, so try every month from 12 months back to 12 ahead
+  // and merge whichever files exist. The old single Fundholiday.xlsx is still read too.
+  const files = ['Fundholiday.xlsx'];
+  for (let i = -12; i <= 12; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    files.push(`Fundholiday_${String(d.getMonth() + 1).padStart(2, '0')}${d.getFullYear()}.xlsx`);
+  }
+  const bust = Date.now();
+  const buffers = await Promise.all(files.map(async name => {
+    try {
+      const res = await fetch(`Fund_data/${name}?t=${bust}`);
+      return res.ok ? await res.arrayBuffer() : null;
+    } catch { return null; }
+  }));
+  HOLIDAY_FILES = files.filter((_, i) => buffers[i]);
+
+  const map = {};
+  buffers.forEach(buf => {
+    if (!buf) return;
+    let rows;
+    try {
+      // Note: cellDates is intentionally NOT used — SheetJS builds those Date objects at
+      // local midnight, and reading them back with UTC getters shifts the date by one day
+      // in any timezone ahead of UTC (e.g. Thailand, UTC+7). Raw numeric serials avoid that.
+      const wb = XLSX.read(buf, { type: 'array' });
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null, raw: true });
+    } catch { return; } // skip a corrupt / half-uploaded file, keep the rest
+    rows.forEach(row => {
+      const code = row.fund_code ?? row['Fund Code'] ?? row['fund code'];
+      const dateVal = row.holiday_date ?? row['Holiday Date'] ?? row['holiday date'];
+      if (!code || !dateVal) return;
+      const key = String(code).replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase();
+      let dateStr = null;
+      if (typeof dateVal === 'number') {
+        const p = XLSX.SSF.parse_date_code(dateVal);
+        if (p) dateStr = `${p.y}-${String(p.m).padStart(2,'0')}-${String(p.d).padStart(2,'0')}`;
+      } else if (dateVal instanceof Date) dateStr = `${dateVal.getFullYear()}-${String(dateVal.getMonth()+1).padStart(2,'0')}-${String(dateVal.getDate()).padStart(2,'0')}`;
+      else if (typeof dateVal === 'string') { const d = new Date(dateVal); if (!isNaN(d)) dateStr = utcYmd(d); }
+      if (!dateStr) return;
+      if (!map[key]) map[key] = [];
+      map[key].push(dateStr);
+    });
+  });
+  FUND_HOLIDAYS = map; // empty if no holiday files are uploaded — badges simply won't show
+  // Reverse index for the calendar tab: date -> fund codes closed that day
+  HOL_BY_DATE = {};
+  for (const [code, dates] of Object.entries(FUND_HOLIDAYS)) {
+    FUND_HOLIDAYS[code] = [...new Set(dates)].sort();
+    FUND_HOLIDAYS[code].forEach(d => (HOL_BY_DATE[d] = HOL_BY_DATE[d] || []).push(code));
+  }
+}
+function getHolidayCaution(code) {
+  if (!code) return null;
+  const tokens = code.split('/');
+  let today = false, next = false;
+  const weekSet = new Set();
+  const nextWeekSet = new Set();
+  for (const token of tokens) {
+    const key = token.replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase();
+    const list = FUND_HOLIDAYS[key];
+    if (!list) continue;
+    if (list.includes(HOLIDAY_TODAY_STR)) today = true;
+    if (list.includes(HOLIDAY_NEXT_STR)) next = true;
+    list.forEach(d => {
+      if (d >= HOLIDAY_TODAY_STR && d <= HOLIDAY_WEEK_END_STR) weekSet.add(d);
+      if (d >= HOLIDAY_NEXTWEEK_START_STR && d <= HOLIDAY_NEXTWEEK_END_STR) nextWeekSet.add(d);
+    });
+  }
+  weekSet.delete(HOLIDAY_TODAY_STR);
+  weekSet.delete(HOLIDAY_NEXT_STR);
+  const week = [...weekSet].sort();
+  const nextWeek = [...nextWeekSet].sort();
+  return (today || next || week.length || nextWeek.length) ? { today, next, week, nextWeek } : null;
+}
+function fmtHoliday(flag) {
+  if (!flag) return '';
+  let out = '';
+  const b = (key, d) => `<span class="hl-badge holiday-badge">${t(key, { d })}</span>`;
+  if (flag.today) out += b('badgeToday', fmtHolidayDate(HOLIDAY_TODAY_STR));
+  if (flag.next)  out += b('badgeNext', fmtHolidayDate(HOLIDAY_NEXT_STR));
+  if (flag.week && flag.week.length) out += b('badgeWeek', fmtWeekDates(flag.week));
+  if (flag.nextWeek && flag.nextWeek.length) out += b('badgeNextWeek', fmtWeekDates(flag.nextWeek));
+  return out;
+}
+
+function showMomTip(badgeEl, key) {
+  const data = MOMENTUM_ACTIONS[key];
+  if (!data) return;
+  const tip = document.getElementById('mom-tip');
+  const backdrop = document.getElementById('mom-backdrop');
+  document.getElementById('tip-header').style.setProperty('--c', data.bg);
+  document.getElementById('tip-stage').textContent = trMom(data.label);
+  document.getElementById('tip-actions').innerHTML = data.actions.map(k => {
+    const [name, desc] = ACT[k][LANG];
+    return `<div class="tip-action">
+      <div class="tip-action-name">${name}</div>
+      <div class="tip-action-desc">${desc}</div>
+    </div>`;
+  }).join('');
+  tip.classList.add('show');
+  backdrop.classList.add('show');
+
+  // Mobile: bottom sheet — no positioning needed (CSS handles it)
+  if (window.innerWidth <= 680) return;
+
+  // Desktop: float near badge
+  const rect = badgeEl.getBoundingClientRect();
+  const margin = 8;
+  const tw = tip.offsetWidth || 340;
+  const th = tip.offsetHeight || 220;
+  let x = rect.left;
+  let y = rect.bottom + 6;
+  if (x + tw > window.innerWidth - margin) x = window.innerWidth - tw - margin;
+  if (y + th > window.innerHeight - margin) y = rect.top - th - 6;
+  tip.style.left = Math.max(margin, x) + 'px';
+  tip.style.top  = Math.max(margin, y) + 'px';
+}
+
+function hideMomTip() {
+  document.getElementById('mom-tip').classList.remove('show');
+  document.getElementById('mom-backdrop').classList.remove('show');
+}
+
+let allFunds = [], filtered = [], listenersOk = false;
+let selCls = new Set(), selMom = new Set(), selHL = new Set(), selFH = new Set(), selType = new Set(), selStyle = new Set();
+let sortCol = null, sortDir = 1, prioritySorted = false;
+
+// ── Compare selection ───────────────────────────────────────────
+// Compare mode filters the same table/card view down to just the selected
+// funds (no separate window) — selecting/deselecting live-updates the list.
+const MAX_COMPARE = 10;
+let selectedIds = new Set();
+let compareMode = false;
+let toastTimer = null;
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2500);
+}
+
+function escAttr(s) {
+  return esc(s).replace(/"/g, '&quot;');
+}
+
+function toggleCompare(id, checked) {
+  if (checked) {
+    if (selectedIds.size >= MAX_COMPARE) {
+      showToast(t('maxCompare', { n: MAX_COMPARE }));
+      render();
+      return;
+    }
+    selectedIds.add(id);
+  } else {
+    selectedIds.delete(id);
+    if (selectedIds.size === 0) compareMode = false;
+  }
+  render();
+}
+
+function updateCompareBar() {
+  const bar = document.getElementById('compare-bar');
+  const label = document.getElementById('compare-bar-label');
+  const btn = document.getElementById('compare-open-btn');
+  const n = selectedIds.size;
+  bar.classList.toggle('show', n > 0);
+  bar.classList.toggle('mode', compareMode);
+  if (compareMode) {
+    label.textContent = t('comparing', { n });
+    btn.textContent = t('showAll');
+    btn.disabled = false;
+  } else {
+    label.textContent = t('nSelectedCompare', { n, max: MAX_COMPARE });
+    btn.textContent = t('compareBtn');
+    btn.disabled = n < 2;
+  }
+}
+
+function toggleCompareMode() {
+  if (compareMode) {
+    compareMode = false;
+  } else {
+    if (selectedIds.size < 2) return;
+    compareMode = true;
+  }
+  render();
+}
+
+function clearCompare() {
+  selectedIds.clear();
+  compareMode = false;
+  render();
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+// Excel-style 3-color scale (red - white - green), saturating at ±PCT_SCALE_MAX%
+const PCT_SCALE_MAX = 5;
+// Coloured text plus a light tint that deepens with size (still reads as a heat map),
+// built from theme tokens so it works in light and dark mode.
+function pctColor(v) {
+  if (Math.abs(v) < 0.005) return { bg: 'transparent', fg: 'var(--muted)' };
+  const t = Math.min(1, Math.abs(v) / PCT_SCALE_MAX);
+  const a = (0.05 + 0.2 * t).toFixed(3);
+  return v > 0
+    ? { bg: `rgba(var(--pos-rgb),${a})`, fg: 'var(--pos)' }
+    : { bg: `rgba(var(--neg-rgb),${a})`, fg: 'var(--neg)' };
+}
+function fmtPct(v, forCard) {
+  if (v==null) return forCard ? `<span class="card-pct-val na">—</span>` : `<span class="na">—</span>`;
+  const c = pctColor(v), sign = v>0?'+':'';
+  const txt = `${sign}${v.toFixed(2)}%`;
+  const style = `background:${c.bg};color:${c.fg}`;
+  return forCard ? `<span class="card-pct-val" style="${style}">${txt}</span>` : `<span class="pct" style="${style}">${txt}</span>`;
+}
+function fmtNav(v, lbl) {
+  if (v==null) return '<span class="na">—</span>';
+  return `<span class="nav-val">${v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4})}</span><br><span class="nav-lbl">${esc(trNavLbl(lbl))}</span>`;
+}
+function fmtDate(v) {
+  if (!v) return '<span class="na">—</span>';
+  try {
+    const d = new Date(v);
+    if (isNaN(d)) return v;
+    return dtf({ day: '2-digit', month: 'short', year: 'numeric' }).format(d);
+  } catch { return v; }
+}
+function esc(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function momCls(m) {
+  if (!m) return '';
+  const u = m.toUpperCase();
+  if (u.includes('STRONG')) return 'mom-strong';
+  if (u.includes('RISING')) return 'mom-rising';
+  if (u.includes('FADING')) return 'mom-fading';
+  if (u.includes('NEUTRAL')) return 'mom-neutral';
+  return 'mom-neutral';
+}
+function momKey(m) {
+  if (!m) return '';
+  const u = m.toUpperCase();
+  if (u.includes('STRONG')) return 'Strong';
+  if (u.includes('RISING')) return 'Rising';
+  if (u.includes('FADING')) return 'Fading';
+  if (u.includes('NEUTRAL')) return 'Neutral';
+  return '';
+}
+function fmtMom(m) {
+  if (!m) return '<span class="na">—</span>';
+  const key = momKey(m);
+  return `<span class="mom-badge ${momCls(m)}" data-mom="${key}">${esc(trMom(m))}</span>`;
+}
+function fmtType(cat) {
+  if (!cat) return '<span class="na">—</span>';
+  const cls = cat === 'ETF' ? 'type-etf' : 'type-mf';
+  return `<span class="type-tag ${cls}">${esc(trType(cat))}</span>`;
+}
+function fmtStyle(style) {
+  if (!style) return `<span class="style-tag style-unknown">${t('noData')}</span>`;
+  const cls = style === 'Active' ? 'style-active' : 'style-passive';
+  return `<span class="style-tag ${cls}">${esc(trStyle(style))}</span>`;
+}
+
+// ── Searchable Select ─────────────────────────────────────────
+let ssHandles = {};
+
+function initSS(funds) {
+  const classes = [...new Set(funds.map(f => f.classification).filter(Boolean))].sort();
+  const types = [...new Set(funds.map(f => f.category).filter(Boolean))].sort();
+  const styles = [...new Set(funds.map(f => f.style).filter(Boolean))].sort();
+
+  function onClsChange(clsSet) { selCls = clsSet; render(); }
+  function onHLChange(hlSet) { selHL = hlSet; render(); }
+  function onFHChange(fhSet) { selFH = fhSet; render(); }
+  function onTypeChange(typeSet) { selType = typeSet; render(); }
+  function onStyleChange(styleSet) { selStyle = styleSet; render(); }
+
+  // Option values are stable keys; labels are looked up in the current language
+  const hlOptions = ['rec', 'mon'];
+  const hlLabel = k => t(k === 'rec' ? 'hlRec' : 'hlMon');
+  const fhOptions = ['today', 'next', 'week', 'nextweek'];
+  const fhLabel = k => ({
+    today:    () => t('fhToday', { d: fmtHolidayDate(HOLIDAY_TODAY_STR) }),
+    next:     () => t('fhNext', { d: fmtHolidayDate(HOLIDAY_NEXT_STR) }),
+    week:     () => t('fhWeek', { d: fmtDateRange(HOLIDAY_WEEK_START_STR, HOLIDAY_WEEK_END_STR) }),
+    nextweek: () => t('fhNextWeek', { d: fmtDateRange(HOLIDAY_NEXTWEEK_START_STR, HOLIDAY_NEXTWEEK_END_STR) })
+  })[k]();
+
+  function makeSS(inputId, ddId, searchId, listId, opts, onSel, phKey, labelOf = v => v) {
+    let cur = new Set();
+    const input  = document.getElementById(inputId);
+    const dd     = document.getElementById(ddId);
+    const search = document.getElementById(searchId);
+    const list   = document.getElementById(listId);
+
+    function updateLabel() {
+      input.placeholder = t(phKey);
+      if (cur.size === 0) { input.value = ''; }
+      else if (cur.size === 1) { input.value = labelOf([...cur][0]); }
+      else { input.value = t('nSelected', { n: cur.size }); }
+    }
+
+    function renderOpts(filter) {
+      list.innerHTML = '';
+      // "All" row (clears selection)
+      const allEl = document.createElement('div');
+      allEl.className = 'ss-option' + (cur.size === 0 ? ' selected' : '');
+      allEl.innerHTML = `<span class="ss-check">${cur.size === 0 ? '✓' : ''}</span>${t('all')}`;
+      allEl.onclick = (e) => { e.stopPropagation(); cur.clear(); updateLabel(); renderOpts(search.value); onSel(cur); };
+      list.appendChild(allEl);
+
+      const f = (filter || '').toLowerCase();
+      opts.filter(o => !f || labelOf(o).toLowerCase().includes(f) || String(o).toLowerCase().includes(f)).forEach(o => {
+        const on = cur.has(o);
+        const el = document.createElement('div');
+        el.className = 'ss-option' + (on ? ' selected' : '');
+        el.innerHTML = `<span class="ss-check">${on ? '✓' : ''}</span>${esc(labelOf(o))}`;
+        el.onclick = (e) => {
+          e.stopPropagation();
+          if (cur.has(o)) cur.delete(o); else cur.add(o);
+          updateLabel(); renderOpts(search.value); onSel(cur);
+        };
+        list.appendChild(el);
+      });
+    }
+
+    function openDD() {
+      const rect = input.getBoundingClientRect();
+      dd.style.top = (rect.bottom + 4) + 'px';
+      dd.style.left = rect.left + 'px';
+      dd.style.width = rect.width + 'px';
+      dd.classList.add('open'); input.classList.add('open');
+      search.value = ''; renderOpts(''); search.focus();
+    }
+    input.addEventListener('click', e => {
+      e.stopPropagation();
+      const wasOpen = dd.classList.contains('open');
+      document.querySelectorAll('.ss-dropdown').forEach(d => d.classList.remove('open'));
+      document.querySelectorAll('.ss-input').forEach(i => i.classList.remove('open'));
+      if (!wasOpen) openDD();
+    });
+    search.addEventListener('input', () => renderOpts(search.value));
+    search.addEventListener('click', e => e.stopPropagation());
+    renderOpts('');
+    updateLabel();
+    return {
+      relabel: () => { updateLabel(); renderOpts(search.value); },
+      rebuild: (newOpts) => {
+        opts = newOpts;
+        cur = new Set([...cur].filter(v => newOpts.includes(v)));
+        updateLabel(); renderOpts('');
+      },
+      reset: () => { cur.clear(); updateLabel(); renderOpts(''); },
+      getVal: () => cur
+    };
+  }
+
+  ssHandles.type   = makeSS('ss-type-input',   'ss-type-dd',   'ss-type-search',   'ss-type-list',   types,     onTypeChange,  'phTypes',  trType);
+  ssHandles.style  = makeSS('ss-style-input',  'ss-style-dd',  'ss-style-search',  'ss-style-list',  styles,    onStyleChange, 'phStyles', trStyle);
+  ssHandles.cls    = makeSS('ss-cls-input',    'ss-cls-dd',    'ss-cls-search',    'ss-cls-list',    classes,   onClsChange,   'phCls',    trCls);
+  ssHandles.hl     = makeSS('ss-hl-input',     'ss-hl-dd',     'ss-hl-search',     'ss-hl-list',     hlOptions, onHLChange,    'phHL',     hlLabel);
+  ssHandles.fh     = makeSS('ss-fh-input',     'ss-fh-dd',     'ss-fh-search',     'ss-fh-list',     fhOptions, onFHChange,    'phFH',     fhLabel);
+  ssHandles.mtype  = makeSS('ss-mtype-input',  'ss-mtype-dd',  'ss-mtype-search',  'ss-mtype-list',  types,     onTypeChange,  'phTypes',  trType);
+  ssHandles.mstyle = makeSS('ss-mstyle-input', 'ss-mstyle-dd', 'ss-mstyle-search', 'ss-mstyle-list', styles,    onStyleChange, 'phStyles', trStyle);
+  ssHandles.mcls   = makeSS('ss-mcls-input',   'ss-mcls-dd',   'ss-mcls-search',   'ss-mcls-list',   classes,   onClsChange,   'phCls',    trCls);
+  ssHandles.mhl    = makeSS('ss-mhl-input',    'ss-mhl-dd',    'ss-mhl-search',    'ss-mhl-list',    hlOptions, onHLChange,    'phHL',     hlLabel);
+  ssHandles.mfh    = makeSS('ss-mfh-input',    'ss-mfh-dd',    'ss-mfh-search',    'ss-mfh-list',    fhOptions, onFHChange,    'phFH',     fhLabel);
+
+  if (!listenersOk) {
+    document.getElementById('search').addEventListener('input', debounce(render, 120));
+    function handleDocTap(e) {
+      document.querySelectorAll('.ss-dropdown').forEach(d => d.classList.remove('open'));
+      document.querySelectorAll('.ss-input').forEach(i => i.classList.remove('open'));
+      // Only table badges (not filter buttons) open the tip
+      const badge = e.target.closest('.mom-badge[data-mom]');
+      if (badge) { showMomTip(badge, badge.dataset.mom); return; }
+      if (e.target.closest('#mom-tip')) return;
+      hideMomTip();
+    }
+    document.addEventListener('click', handleDocTap);
+    document.addEventListener('touchend', (e) => {
+      const badge = e.target.closest('.mom-badge[data-mom]');
+      if (badge) {
+        e.preventDefault();
+        showMomTip(badge, badge.dataset.mom);
+        return;
+      }
+      if (e.target.closest('#mom-tip')) return;
+      hideMomTip();
+    }, { passive: false });
+    document.addEventListener('change', (e) => {
+      if (e.target.classList.contains('row-chk') || e.target.classList.contains('card-chk')) {
+        toggleCompare(e.target.dataset.id, e.target.checked);
+      }
+    });
+    listenersOk = true;
+  }
+}
+
+// ── Momentum filter ───────────────────────────────────────────
+function setMom(btn) {
+  const key = btn.dataset.mom;
+  if (key === '') {
+    selMom.clear();
+  } else {
+    if (selMom.has(key)) selMom.delete(key); else selMom.add(key);
+  }
+  document.querySelectorAll('.mom-btn').forEach(b => {
+    const k = b.dataset.mom;
+    b.className = 'mom-btn';
+    if (k === '' && selMom.size === 0) b.classList.add('mom-btn-all');
+    else if (k && selMom.has(k)) b.classList.add('active-' + k.toLowerCase());
+  });
+  render();
+}
+
+// ── Filter toggle (mobile) ────────────────────────────────────
+function toggleFilters() { document.getElementById('filter-drawer').classList.toggle('open'); }
+
+// ── Sort ─────────────────────────────────────────────────────
+function setSort(col) {
+  if (sortCol === col) {
+    sortDir = -sortDir;
+    // third click (back to original dir) → reset
+    const defaultDir = col === 'fund' ? 1 : -1;
+    if (sortDir === defaultDir) { sortCol = null; }
+  } else {
+    sortCol = col;
+    sortDir = col === 'fund' ? 1 : -1;
+  }
+  document.querySelectorAll('th.sortable').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+    if (sortCol && th.dataset.sort === sortCol) th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  });
+  render();
+}
+
+// ── Render ────────────────────────────────────────────────────
+function render() {
+  const q = document.getElementById('search').value.toLowerCase().trim();
+
+  const hasFilter = selCls.size || selMom.size || selHL.size || selFH.size || selType.size || selStyle.size || document.getElementById('search').value.trim();
+  const btn = document.getElementById('clear-btn');
+  if (btn) btn.style.display = hasFilter ? '' : 'none';
+  // Featured cards are the "home" view — hide them while searching/filtering/comparing
+  // so the matching rows sit right under the search bar.
+  document.getElementById('summary').hidden = !!(hasFilter || compareMode);
+
+  filtered = allFunds.filter(f => {
+    if (compareMode) return selectedIds.has(f.id);
+    // Selected funds stay visible (pinned) no matter what filters/search are active,
+    // so you can keep building a comparison set without losing track of picks already made.
+    if (selectedIds.has(f.id)) return true;
+    if (selType.size > 0 && !selType.has(f.category)) return false;
+    if (selStyle.size > 0 && !selStyle.has(f.style)) return false;
+    if (selCls.size > 0 && !selCls.has(f.classification)) return false;
+    if (selMom.size > 0 && !selMom.has(momKey(f.momentum))) return false;
+    if (selHL.size > 0) {
+      const ok = (selHL.has('rec') && f.recommend) || (selHL.has('mon') && f.monthly);
+      if (!ok) return false;
+    }
+    if (selFH.size > 0) {
+      const ok = (selFH.has('today') && f.holiday?.today) || (selFH.has('next') && f.holiday?.next) ||
+                 (selFH.has('week') && f.holiday?.week?.length > 0) || (selFH.has('nextweek') && f.holiday?.nextWeek?.length > 0);
+      if (!ok) return false;
+    }
+    if (q) {
+      const hay = `${f.mutual_fund||''} ${f.fund_name||''} ${f.classification||''} ${trCls(f.classification)}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  prioritySorted = false;
+  if (sortCol) {
+    const momOrder = { Strong: 4, Rising: 3, Neutral: 2, Fading: 1, '': 0 };
+    filtered.sort((a, b) => {
+      let av, bv;
+      if (sortCol === 'fund') {
+        av = (a.mutual_fund || '').toLowerCase();
+        bv = (b.mutual_fund || '').toLowerCase();
+      } else if (sortCol === 'momentum') {
+        av = momOrder[momKey(a.momentum)] ?? 0;
+        bv = momOrder[momKey(b.momentum)] ?? 0;
+      } else {
+        av = a[sortCol] ?? -Infinity;
+        bv = b[sortCol] ?? -Infinity;
+      }
+      return av < bv ? -sortDir : av > bv ? sortDir : 0;
+    });
+  } else {
+    prioritySorted = true;
+    filtered.sort((a, b) => {
+      const sa = selectedIds.has(a.id) ? 1 : 0;
+      const sb = selectedIds.has(b.id) ? 1 : 0;
+      if (sa !== sb) return sb - sa;
+      const pa = a.recommend ? 2 : a.monthly ? 1 : 0;
+      const pb = b.recommend ? 2 : b.monthly ? 1 : 0;
+      if (pa !== pb) return pb - pa;
+      return (a.mutual_fund || '').toLowerCase().localeCompare((b.mutual_fund || '').toLowerCase());
+    });
+  }
+
+  document.getElementById('count-pill').textContent = t('countFunds', { n: filtered.length });
+  // Only build the view actually on screen (desktop table vs mobile cards) — building
+  // both on every keystroke/selection was doubling the work for no visible benefit.
+  renderList();
+  updateCompareBar();
+}
+
+function isMobileView() {
+  return window.matchMedia('(max-width: 720px)').matches;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tbl-body');
+  if (!filtered.length) { tbody.innerHTML = `<tr class="state-row"><td colspan="12">${t('noResults')}</td></tr>`; return; }
+  let html = '', lastCat = null;
+  filtered.forEach(f => {
+    if (!sortCol && !prioritySorted && f.category !== lastCat) {
+      lastCat = f.category;
+      html += `<tr class="group-hd"><td colspan="12">${esc(trType(f.category))}</td></tr>`;
+    }
+    const fn = f.fund_name ? `<div class="fund-name" title="${esc(f.fund_name)}">${esc(f.fund_name)}</div>` : '';
+    const dateLine = f.latest_date ? `<div class="fund-date">${fmtDate(f.latest_date)}</div>` : '';
+    const hlLine = (f.recommend || f.monthly || f.holiday) ? `<div>${f.recommend ? `<span class="hl-badge rec-badge">${t('hlRec')}</span>` : ''}${f.monthly ? `<span class="hl-badge mon-badge">${t('hlMon')}</span>` : ''}${fmtHoliday(f.holiday)}</div>` : '';
+    const isSel = selectedIds.has(f.id);
+    const chk = isSel ? 'checked' : '';
+    html += `<tr${isSel ? ' class="compare-row"' : ''}>
+      <td class="chk-cell"><input type="checkbox" class="row-chk" data-id="${escAttr(f.id)}" ${chk}></td>
+      <td><div class="fund-code">${esc(f.mutual_fund)}</div>${dateLine}${hlLine}${fn}</td>
+      <td>${fmtType(f.category)}</td>
+      <td>${fmtStyle(f.style)}</td>
+      <td><span class="cls-tag" title="${esc(trCls(f.classification))}">${esc(trCls(f.classification))||'—'}</span></td>
+      <td class="num">${fmtNav(f.nav, f.nav_label)}</td>
+      <td class="num">${fmtPct(f.pct1d,false)}</td>
+      <td class="num">${fmtPct(f.pct1w,false)}</td>
+      <td class="num">${fmtPct(f.pct1m,false)}</td>
+      <td class="num">${fmtPct(f.pct3m,false)}</td>
+      <td class="num">${fmtPct(f.pct1y,false)}</td>
+      <td>${fmtMom(f.momentum)}</td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+}
+
+function renderCards() {
+  const grid = document.getElementById('card-grid');
+  if (!filtered.length) { grid.innerHTML = `<div class="state-msg">${t('noResults')}</div>`; return; }
+  let html = '', lastCat = null;
+  filtered.forEach(f => {
+    if (f.category !== lastCat) { lastCat = f.category; html += `<div class="cat-label">${esc(trType(f.category))}</div>`; }
+    const navStr = f.nav != null ? f.nav.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:4}) : '—';
+    const fn = f.fund_name ? `<div class="card-fn">${esc(f.fund_name)}</div>` : '';
+    const momHtml = f.momentum ? `<div style="margin-top:6px">${fmtMom(f.momentum)}</div>` : '';
+    const hlHtml = (f.recommend || f.monthly || f.holiday) ? `<div style="margin-top:4px">${f.recommend ? `<span class="hl-badge rec-badge">${t('hlRec')}</span>` : ''}${f.monthly ? `<span class="hl-badge mon-badge">${t('hlMon')}</span>` : ''}${fmtHoliday(f.holiday)}</div>` : '';
+    const isSel = selectedIds.has(f.id);
+    const chk = isSel ? 'checked' : '';
+    html += `<div class="card${isSel ? ' compare-row' : ''}">
+      <div class="card-head">
+        <div class="card-head-left">
+          <div class="card-title-row">
+            <input type="checkbox" class="card-chk" data-id="${escAttr(f.id)}" ${chk}>
+            <div class="card-name">${esc(f.mutual_fund)}</div>
+          </div>
+          ${fn}${hlHtml}
+        </div>
+        <div class="card-head-right">
+          ${fmtType(f.category)}
+          ${fmtStyle(f.style)}
+          <span class="card-cls" title="${esc(trCls(f.classification))}">${esc(trCls(f.classification))||'—'}</span>
+        </div>
+      </div>
+      <div class="card-nav-row">
+        <div><div class="card-nav-val">${navStr}</div><div class="card-nav-lbl">${esc(trNavLbl(f.nav_label))}</div></div>
+        <div class="card-date">${fmtDate(f.latest_date)}</div>
+      </div>
+      <div class="card-perf">
+        <div class="card-pct"><span class="card-pct-label">1D</span>${fmtPct(f.pct1d,true)}</div>
+        <div class="card-pct"><span class="card-pct-label">1W</span>${fmtPct(f.pct1w,true)}</div>
+        <div class="card-pct"><span class="card-pct-label">1M</span>${fmtPct(f.pct1m,true)}</div>
+        <div class="card-pct"><span class="card-pct-label">3M</span>${fmtPct(f.pct3m,true)}</div>
+        <div class="card-pct"><span class="card-pct-label">1Y</span>${fmtPct(f.pct1y,true)}</div>
+      </div>
+      ${momHtml}
+    </div>`;
+  });
+  grid.innerHTML = html;
+}
+
+function clearFilters() {
+  selCls.clear(); selMom.clear(); selHL.clear(); selFH.clear(); selType.clear(); selStyle.clear();
+  document.getElementById('search').value = '';
+  Object.values(ssHandles).forEach(h => h && h.reset());
+  document.querySelectorAll('.mom-btn').forEach(b => b.className = b.dataset.mom === '' ? 'mom-btn mom-btn-all' : 'mom-btn');
+  sortCol = null; sortDir = 1;
+  document.querySelectorAll('th.sortable').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
+  render();
+}
+
+// ── Load data ─────────────────────────────────────────────────
+let DATA_UPDATED = '';
+// Data "updated" date in the header — Gregorian year in both languages
+function setHeaderDate() {
+  const el = document.getElementById('upd-date');
+  if (!DATA_UPDATED) return;
+  const d = new Date(DATA_UPDATED);
+  el.textContent = isNaN(d) ? DATA_UPDATED : dtf({ day: '2-digit', month: 'short', year: 'numeric' }).format(d);
+}
+// Coverage note shown at the top of the Fund Holiday filter dropdowns
+function updateFhNotes() {
+  const dates = Object.keys(HOL_BY_DATE).sort();
+  const text = dates.length ? t('fhNote', { range: `${fmtHolidayDate(dates[0])} – ${fmtHolidayDate(dates[dates.length - 1])}` }) : '';
+  document.querySelectorAll('.fh-note').forEach(n => { n.textContent = text; n.hidden = !text; });
+}
+
+async function load() {
+  try {
+    let data;
+    try {
+      const res = await fetch('nav_data.json?t=' + Date.now());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    } catch {
+      if (window.NAV_DATA) { data = window.NAV_DATA; }
+      else throw new Error('No data source');
+    }
+
+    await loadFundHolidays();
+    await loadHighlightLists();
+
+    allFunds = (data.funds || []).filter(f =>
+      f.mutual_fund && /^[A-Za-z0-9@\-\.\(\)\/\s,+]+$/.test(f.mutual_fund.trim())
+    ).map(f => ({
+      ...f,
+      thematic:   getThematic(f.mutual_fund),
+      recommend:  checkHL(f.mutual_fund, RECOMMEND_CODES),
+      monthly:    checkHL(f.mutual_fund, MONTHLY_CODES),
+      holiday:    getHolidayCaution(f.mutual_fund)
+    }));
+
+    document.getElementById('total-funds').textContent = allFunds.length;
+    DATA_UPDATED = data.updated || '';
+    setHeaderDate();
+    updateFhNotes();
+
+    initSS(allFunds);
+    render();
+    renderFeatureCards();
+    initHolidayData();
+    if (currentTab === 'holiday') renderHolidayCal();
+
+  } catch (e) {
+    document.getElementById('maintenance-overlay').style.display = 'flex';
+  }
+}
+
+// ── Tabs ──────────────────────────────────────────────────────
+let currentTab = 'nav';
+function switchTab(tab) {
+  if (tab !== 'nav' && tab !== 'holiday') tab = 'nav';
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on);
+  });
+  document.getElementById('tab-nav').hidden = tab !== 'nav';
+  document.getElementById('tab-holiday').hidden = tab !== 'holiday';
+  document.body.classList.toggle('on-holiday-tab', tab === 'holiday');
+  history.replaceState(null, '', tab === 'holiday' ? '#holiday' : location.pathname + location.search);
+  if (tab === 'holiday') {
+    renderHolidayCal();
+  } else {
+    updateStickyOffset();
+    if (allFunds.length) render();
+  }
+  window.scrollTo(0, 0);
+}
+
+// Jump from a featured card to that fund in the main list (the featured section
+// hides while a search is active, so the matching row lands right under the search bar)
+function focusFund(code) {
+  if (currentTab !== 'nav') switchTab('nav');
+  document.getElementById('search').value = code;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Featured cards: Recommended | Monthly Pick | Top 1 Month ──
+function featCard(f, kind, rank) {
+  const navStr = f.nav != null ? f.nav.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—';
+  return `<div class="feat-card ${kind}" role="button" tabindex="0" data-focus="${escAttr(f.mutual_fund)}">
+    ${rank ? `<span class="feat-rank${rank <= 3 ? ' gold' : ''}">#${rank}</span>` : ''}
+    <div class="feat-code" title="${escAttr(f.mutual_fund)}">${esc(f.mutual_fund)}</div>
+    <div class="feat-name" title="${escAttr(f.fund_name || '')}">${esc(f.fund_name) || '&nbsp;'}</div>
+    <div class="feat-tags">${fmtType(f.category)}${fmtStyle(f.style)}</div>
+    <div class="feat-nav-row">
+      <div><span class="feat-nav-val">${navStr}</span> <span class="feat-nav-lbl">${esc(trNavLbl(f.nav_label))}</span></div>
+      <span class="feat-nav-lbl">${fmtDate(f.latest_date)}</span>
+    </div>
+    <div class="feat-perf">
+      <div class="card-pct"><span class="card-pct-label">1D</span>${fmtPct(f.pct1d, true)}</div>
+      <div class="card-pct"><span class="card-pct-label">1M</span>${fmtPct(f.pct1m, true)}</div>
+      <div class="card-pct"><span class="card-pct-label">1Y</span>${fmtPct(f.pct1y, true)}</div>
+    </div>
+    ${f.momentum ? fmtMom(f.momentum) : ''}
+  </div>`;
+}
+
+const FEAT_ROWS = ['feat-rec', 'feat-mon', 'feat-top'];
+function renderFeatureCards() {
+  const byCode = (a, b) => (a.mutual_fund || '').localeCompare(b.mutual_fund || '');
+  const fill = (id, list, kind, ranked) => {
+    document.getElementById(id + '-group').hidden = !list.length;
+    document.getElementById(id + '-count').textContent = `(${list.length})`;
+    const row = document.getElementById(id);
+    row.innerHTML = list.map((f, i) => featCard(f, kind, ranked ? i + 1 : 0)).join('');
+    row.scrollLeft = 0;
+    updateFeatPos(id);
+  };
+  fill('feat-rec', allFunds.filter(f => f.recommend).sort(byCode), 'rec');
+  fill('feat-mon', allFunds.filter(f => f.monthly).sort(byCode), 'mon');
+  fill('feat-top', allFunds.filter(f => f.pct1m != null).sort((a, b) => b.pct1m - a.pct1m).slice(0, 10), 'top', true);
+}
+
+function featStep(row) {
+  const card = row.firstElementChild;
+  return card ? card.offsetWidth + 10 : row.clientWidth; // 10 = .feat-row gap
+}
+// "3 / 15" position counter next to the arrows
+function updateFeatPos(id) {
+  const row = document.getElementById(id);
+  const n = row.children.length;
+  const idx = n ? Math.min(n, Math.round(row.scrollLeft / featStep(row)) + 1) : 0;
+  document.getElementById(id + '-pos').textContent = n > 1 ? `${idx} / ${n}` : '';
+}
+function scrollFeat(id, dir) {
+  const row = document.getElementById(id);
+  const max = row.scrollWidth - row.clientWidth;
+  if (dir > 0 && row.scrollLeft >= max - 2) row.scrollTo({ left: 0, behavior: 'smooth' });          // wrap to first
+  else if (dir < 0 && row.scrollLeft <= 2) row.scrollTo({ left: max, behavior: 'smooth' });         // wrap to last
+  else row.scrollBy({ left: dir * featStep(row), behavior: 'smooth' });
+}
+
+// ── Fund Holiday calendar tab ────────────────────────────────
+const CAL_MONTHS = {
+  en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+  th: ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+};
+const CAL_WEEKDAYS = {
+  en: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+  th: ['อา','จ','อ','พ','พฤ','ศ','ส']
+};
+let holYear = new Date().getFullYear(), holFund = null, holDay = null;
+
+function holKey(s) {
+  return String(s || '').replace(/\s*-\s*/g, '-').replace(/\xad/g, '-').trim().toUpperCase();
+}
+function fmtHolLong(ds) {
+  const [y, m, d] = ds.split('-').map(Number);
+  return dtf({ weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function initHolidayData() {
+  const codes = Object.keys(FUND_HOLIDAYS).sort();
+  document.getElementById('hol-fund-list').innerHTML = codes.map(c => `<option value="${escAttr(c)}">`).join('');
+  const dates = Object.keys(HOL_BY_DATE).sort();
+  document.getElementById('hol-range').textContent = dates.length
+    ? t('holRange', { from: fmtHolidayDate(dates[0]), to: fmtHolidayDate(dates[dates.length - 1]), n: codes.length })
+    : t('holNoData');
+}
+
+function renderHolidayCal() {
+  document.getElementById('hol-year').textContent = holYear;
+  const today = ymd(new Date());
+  const fundDates = holFund ? new Set(FUND_HOLIDAYS[holFund] || []) : null;
+  const pad = n => String(n).padStart(2, '0');
+  let html = '';
+  for (let m = 0; m < 12; m++) {
+    const lead = new Date(holYear, m, 1).getDay();
+    const days = new Date(holYear, m + 1, 0).getDate();
+    let cells = '', monthHasFundHol = false;
+    for (let i = 0; i < lead; i++) cells += '<span class="hol-day empty"></span>';
+    for (let d = 1; d <= days; d++) {
+      const ds = `${holYear}-${pad(m + 1)}-${pad(d)}`;
+      const dow = (lead + d - 1) % 7;
+      const cls = ['hol-day'];
+      let title = '';
+      if (ds < today) cls.push('past');
+      if (dow === 0 || dow === 6) cls.push('weekend');
+      if (ds === today) cls.push('today');
+      if (ds === holDay) cls.push('picked');
+      if (fundDates) {
+        if (fundDates.has(ds)) { cls.push('is-hol'); title = t('holFundClosed', { code: holFund }); monthHasFundHol = true; }
+      } else if (HOL_BY_DATE[ds]) {
+        cls.push('has-hol'); title = t('holClosedCount', { n: HOL_BY_DATE[ds].length });
+      }
+      cells += `<button type="button" class="${cls.join(' ')}" data-date="${ds}"${title ? ` title="${escAttr(title)}"` : ''}>${d}</button>`;
+    }
+    html += `<div class="hol-month${monthHasFundHol ? ' has-fund-hol' : ''}" data-m="${m}">
+      <div class="hol-month-title">${CAL_MONTHS[LANG][m]} ${holYear}</div>
+      <div class="hol-grid">${CAL_WEEKDAYS[LANG].map(w => `<span class="hol-wd">${w}</span>`).join('')}${cells}</div>
+    </div>`;
+  }
+  document.getElementById('hol-cal').innerHTML = html;
+  renderHolPanel();
+}
+
+function renderHolPanel() {
+  const today = ymd(new Date());
+  const q = holKey(document.getElementById('hol-search').value);
+  let html = '';
+  if (holFund) {
+    const list = FUND_HOLIDAYS[holFund] || [];
+    const upcoming = list.filter(d => d >= today), past = list.filter(d => d < today).reverse();
+    const li = d => `<li><button type="button" data-jump="${d}">${fmtHolLong(d)}</button></li>`;
+    html += `<div class="hol-card">
+      <div class="hol-card-title">${esc(holFund)}</div>
+      <div class="hol-card-sub">${t('holTotal', { n: list.length, u: upcoming.length })}</div>
+      <ul class="hol-list">${upcoming.map(li).join('') || `<li class="hol-empty">${t('holNoUpcoming')}</li>`}</ul>
+      ${past.length ? `<details><summary>${t('holPast', { n: past.length })}</summary><ul class="hol-list past">${past.map(li).join('')}</ul></details>` : ''}
+    </div>`;
+  } else if (q) {
+    const matches = Object.keys(FUND_HOLIDAYS).filter(k => k.includes(q)).sort().slice(0, 40);
+    html += `<div class="hol-card">
+      <div class="hol-card-title">${esc(t('holSearchResult', { q }))}</div>
+      <div class="hol-card-sub">${matches.length ? t('holPick') : ''}</div>
+      ${matches.length
+        ? `<div class="hol-chips">${matches.map(c => `<button type="button" class="hol-chip" data-fund="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>`
+        : `<div class="hol-empty">${t('holNotFound')}</div>`}
+    </div>`;
+  } else {
+    const dates = Object.keys(HOL_BY_DATE).filter(d => d >= today).sort().slice(0, 10);
+    html += `<div class="hol-card">
+      <div class="hol-card-title">${t('holUpcomingTitle')}</div>
+      <div class="hol-card-sub">${t('holHint')}</div>
+      ${dates.length
+        ? `<ul class="hol-list">${dates.map(d => `<li><button type="button" data-jump="${d}"><span>${fmtHolLong(d)}</span><span class="hol-count">${t('holCountShort', { n: HOL_BY_DATE[d].length })}</span></button></li>`).join('')}</ul>`
+        : `<div class="hol-empty">${t('holNoUpcomingAll')}</div>`}
+    </div>`;
+  }
+  if (holDay) {
+    const funds = (HOL_BY_DATE[holDay] || []).slice().sort();
+    html += `<div class="hol-card" id="hol-day-card">
+      <div class="hol-card-title">${fmtHolLong(holDay)}</div>
+      <div class="hol-card-sub">${t('holClosedN', { n: funds.length })}</div>
+      ${funds.length
+        ? `${funds.length > 12 ? `<input class="hol-day-filter" placeholder="${escAttr(t('holDayFilter'))}" autocomplete="off">` : ''}
+           <div class="hol-chips">${funds.map(c => `<button type="button" class="hol-chip${c === holFund ? ' on' : ''}" data-fund="${escAttr(c)}">${esc(c)}</button>`).join('')}</div>`
+        : `<div class="hol-empty">${t('holNoneClosed')}</div>`}
+    </div>`;
+  }
+  document.getElementById('hol-panel').innerHTML = html;
+}
+
+function selectHolFund(code) {
+  holFund = code;
+  holDay = null;
+  document.getElementById('hol-search').value = code;
+  document.getElementById('hol-clear').hidden = false;
+  // If this fund has nothing in the year on screen, jump to the year of its next (or latest) holiday
+  const list = FUND_HOLIDAYS[code] || [];
+  if (list.length && !list.some(d => d.startsWith(holYear + '-'))) {
+    const today = ymd(new Date());
+    holYear = Number((list.find(d => d >= today) || list[list.length - 1]).slice(0, 4));
+  }
+  renderHolidayCal();
+  const first = list.find(d => d.startsWith(holYear + '-'));
+  if (first) scrollToHolMonth(Number(first.slice(5, 7)) - 1);
+}
+
+function scrollToHolMonth(m) {
+  const el = document.querySelector(`.hol-month[data-m="${m}"]`);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Stacked layout (mobile/tablet): the panel sits above the calendar
+function holStacked() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+// After picking a date: on the stacked layout show the "funds closed that day" list;
+// side-by-side, the list is already visible, so bring the month into view instead.
+function revealHolDay(ds) {
+  const card = document.getElementById('hol-day-card');
+  if (holStacked() && card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  else if (!holStacked()) scrollToHolMonth(Number(ds.slice(5, 7)) - 1);
+}
+
+function jumpToHolDay(ds) {
+  holDay = ds;
+  holYear = Number(ds.slice(0, 4));
+  renderHolidayCal();
+  revealHolDay(ds);
+}
+
+function clearHolSearch() {
+  document.getElementById('hol-search').value = '';
+  document.getElementById('hol-clear').hidden = true;
+  holFund = null;
+  renderHolidayCal();
+}
+function changeHolYear(delta) { holYear += delta; renderHolidayCal(); }
+function goHolToday() {
+  holYear = new Date().getFullYear();
+  renderHolidayCal();
+  scrollToHolMonth(new Date().getMonth());
+}
+
+// One-time listeners for the featured cards and calendar (all use delegation)
+(function setupFeatureUI() {
+  const search = document.getElementById('hol-search');
+  search.addEventListener('input', debounce(() => {
+    const k = holKey(search.value);
+    document.getElementById('hol-clear').hidden = !search.value;
+    if (k && FUND_HOLIDAYS[k]) { if (k !== holFund) selectHolFund(k); return; }
+    holFund = null;
+    renderHolidayCal();
+  }, 150));
+
+  document.getElementById('hol-cal').addEventListener('click', e => {
+    const day = e.target.closest('[data-date]');
+    if (!day) return;
+    holDay = holDay === day.dataset.date ? null : day.dataset.date;
+    renderHolidayCal();
+    if (holDay) revealHolDay(holDay);
+  });
+
+  const panel = document.getElementById('hol-panel');
+  panel.addEventListener('click', e => {
+    const f = e.target.closest('[data-fund]');
+    if (f) { selectHolFund(f.dataset.fund); return; }
+    const j = e.target.closest('[data-jump]');
+    if (j) jumpToHolDay(j.dataset.jump);
+  });
+  // Filter the long "funds closed on this day" chip list in place (no re-render, keeps focus)
+  panel.addEventListener('input', e => {
+    if (!e.target.classList.contains('hol-day-filter')) return;
+    const q = holKey(e.target.value);
+    e.target.nextElementSibling.querySelectorAll('.hol-chip').forEach(c => {
+      c.hidden = !!q && !c.dataset.fund.includes(q);
+    });
+  });
+})();
+
+// ── Light / dark theme (follows the system until the user picks one) ──
+function toggleTheme() {
+  const root = document.documentElement;
+  const isDark = root.dataset.theme
+    ? root.dataset.theme === 'dark'
+    : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = isDark ? 'light' : 'dark';
+  try { localStorage.setItem('navTheme', root.dataset.theme); } catch {}
+}
+
+// ── Keyboard: "/" jumps to search, Esc leaves it ──
+document.addEventListener('keydown', e => {
+  const el = document.activeElement;
+  const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+  if (e.key === '/' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    e.preventDefault();
+    const target = document.getElementById(currentTab === 'holiday' ? 'hol-search' : 'search');
+    target.focus(); target.select();
+  } else if (e.key === 'Escape' && typing && (el.id === 'search' || el.id === 'hol-search')) {
+    el.blur();
+  }
+});
+
+
+// ════════ Design E: list + detail panel ════════
+const PERIODS = ['pct1d', 'pct1w', 'pct1m', 'pct3m', 'pct1y'];
+const PER_LBL = { pct1d: '1D', pct1w: '1W', pct1m: '1M', pct3m: '3M', pct1y: '1Y' };
+// Fixed bar scale per period, same for every fund, so bars compare fairly
+const BAR_SCALE = { pct1d: 3, pct1w: 6, pct1m: 10, pct3m: 20, pct1y: 40 };
+let listPer = (() => { try { const p = localStorage.getItem('navPer'); return PERIODS.includes(p) ? p : 'pct1m'; } catch { return 'pct1m'; } })();
+let curId = null;
+
+const ICO_STAR = '<svg class="ico fl-star rec" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6L12 16.3 6.6 19.3l1.3-6L3.3 9.2l6.1-.6z"/></svg>';
+const ICO_PICK = '<svg class="ico fl-star mon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M9 14l2 2 4-4"/></svg>';
+const ICO_HOL  = '<svg class="ico fl-star hol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const ICO_X    = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+function pctTxt(v) {
+  if (v == null) return '—';
+  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`;
+}
+function pctCls(v) {
+  if (v == null || Math.abs(v) < 0.005) return 'zero-t';
+  return v > 0 ? 'pos-t' : 'neg-t';
+}
+function navTxt(v) {
+  return v != null ? v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : '—';
+}
+function fundById(id) { return allFunds.find(f => f.id === id); }
+
+// ── Summary tiles ──
+function sumRow(f, rank, val, tag) {
+  return `<button type="button" class="sum-row" data-pick="${escAttr(f.id)}">
+    ${rank ? `<span class="sum-rank">${rank}</span>` : ''}
+    <span class="sum-code" title="${escAttr(f.fund_name || '')}">${esc(f.mutual_fund)}</span>
+    <span class="sum-val ${pctCls(val)}">${pctTxt(val)}${tag ? `<span class="sum-tag">${tag}</span>` : ''}</span>
+  </button>`;
+}
+function renderFeatureCards() {
+  // Tiles use %MTD (month to date). Per fund: if MTD is missing or 0, use %1M instead
+  // (marked with a small "1M" tag). When MTD arrives, that fund switches back automatically.
+  const hasMtd = f => f.pctmtd != null && Math.abs(f.pctmtd) >= 0.005;
+  const val = f => hasMtd(f) ? f.pctmtd : f.pct1m;
+  const anyMtd = allFunds.some(hasMtd);
+  document.querySelectorAll('#summary .sum-per').forEach(el => { el.textContent = anyMtd ? '%MTD' : '%1M'; });
+  const tag = f => (anyMtd && !hasMtd(f) && f.pct1m != null) ? '1M' : '';
+  const withM = allFunds.filter(f => val(f) != null);
+  const gain = withM.filter(f => val(f) > 0).sort((a, b) => val(b) - val(a)).slice(0, 10);
+  const loss = withM.filter(f => val(f) < 0).sort((a, b) => val(a) - val(b)).slice(0, 10);
+  const byCode = (a, b) => (a.mutual_fund || '').localeCompare(b.mutual_fund || '');
+  const rec = allFunds.filter(f => f.recommend).sort(byCode);
+  const mon = allFunds.filter(f => f.monthly).sort(byCode);
+  const fill = (id, list, ranked) => {
+    document.getElementById(id).innerHTML = list.length
+      ? list.map((f, i) => sumRow(f, ranked ? i + 1 : 0, val(f), tag(f))).join('')
+      : `<div class="sum-empty">${t('sumNone')}</div>`;
+  };
+  fill('sum-gain-list', gain, true);
+  fill('sum-loss-list', loss, true);
+  fill('sum-rec-list', rec, false);
+  fill('sum-mon-list', mon, false);
+  document.getElementById('sum-rec-n').textContent = `(${rec.length})`;
+  document.getElementById('sum-mon-n').textContent = `(${mon.length})`;
+}
+
+// ── Fund list (left) ──
+function renderList() {
+  const box = document.getElementById('fl-list');
+  document.getElementById('fl-per-lbl').textContent = PER_LBL[listPer];
+  document.querySelectorAll('#per-seg button').forEach(b => b.classList.toggle('on', b.dataset.p === listPer));
+  const sel = document.getElementById('fl-sort');
+  if (!sortCol) sel.value = 'default';
+
+  // Keep a fund selected on desktop; on phones the sheet opens only when tapped
+  if (!isMobileView() && filtered.length && !filtered.some(f => f.id === curId)) curId = filtered[0].id;
+
+  if (!filtered.length) {
+    box.innerHTML = `<div class="state-msg">${t('noResults')}</div>`;
+  } else {
+    box.innerHTML = filtered.map(f => {
+      const v = f[listPer];
+      const isSel = selectedIds.has(f.id);
+      const icons = (f.recommend ? ICO_STAR : '') + (f.monthly ? ICO_PICK : '') + (f.holiday ? ICO_HOL : '');
+      return `<div class="fl-row${f.id === curId ? ' on' : ''}${isSel ? ' compare-row' : ''}" data-id="${escAttr(f.id)}">
+        <input type="checkbox" class="row-chk" data-id="${escAttr(f.id)}" ${isSel ? 'checked' : ''} aria-label="${escAttr(t('selectCompare'))}">
+        <div class="fl-main">
+          <div class="fl-code"><span class="fl-dot ${momCls(f.momentum)}" title="${escAttr(trMom(f.momentum))}"></span><span class="c">${esc(f.mutual_fund)}</span>${icons}</div>
+          <div class="fl-name">${esc(f.fund_name) || '&nbsp;'}</div>
+        </div>
+        <div class="fl-right">
+          <div class="fl-ret ${pctCls(v)}">${pctTxt(v)}</div>
+          <div class="fl-nav">${navTxt(f.nav)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  renderDetail();
+  const active = !!(document.getElementById('search').value.trim() || selCls.size || selMom.size || selHL.size ||
+    selFH.size || selType.size || selStyle.size || sortCol || pickedFund);
+  document.getElementById('reset-btn').hidden = !active;
+  document.body.classList.toggle('has-reset', active);
+  // Phones: the compare table lives in the bottom sheet, so open/close it with compare mode
+  if (isMobileView() && compareMode !== lastCompareMode) document.body.classList.toggle('fd-open', compareMode);
+  lastCompareMode = compareMode;
+}
+let lastCompareMode = false;
+
+// ── Detail panel (right / bottom sheet on phones) ──
+function fundHolidays(code) {
+  const out = new Set();
+  (code || '').split('/').forEach(tok => {
+    const list = FUND_HOLIDAYS[holKey(tok)];
+    if (list) list.forEach(d => { if (d >= HOLIDAY_TODAY_STR) out.add(d); });
+  });
+  return [...out].sort();
+}
+function holKeyFor(code) {
+  const tok = (code || '').split('/').map(holKey).find(k => FUND_HOLIDAYS[k]);
+  return tok || holKey((code || '').split('/')[0]);
+}
+
+function renderDetail() {
+  const box = document.getElementById('fd');
+  if (compareMode) { box.innerHTML = renderCompareTable(); return; }
+  const f = curId && fundById(curId);
+  if (!f) {
+    box.innerHTML = `<div class="fd-empty"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>${t('fdPick')}</div>`;
+    return;
+  }
+  const badges = (f.recommend ? `<span class="hl-badge rec-badge">${t('hlRec')}</span>` : '') +
+                 (f.monthly ? `<span class="hl-badge mon-badge">${t('hlMon')}</span>` : '') + fmtHoliday(f.holiday);
+  const bars = PERIODS.map(p => {
+    const v = f[p];
+    const w = v == null ? 0 : Math.min(Math.abs(v) / BAR_SCALE[p], 1) * 50;
+    const fill = v == null || Math.abs(v) < 0.005 ? '' : `<div class="fd-fill ${v > 0 ? 'pos' : 'neg'}" style="width:${w.toFixed(1)}%"></div>`;
+    return `<div class="fd-bar"><span class="fd-bar-lbl">${PER_LBL[p]}</span><div class="fd-trk">${fill}</div><span class="fd-bar-val ${pctCls(v)}">${pctTxt(v)}</span></div>`;
+  }).join('');
+
+  const key = momKey(f.momentum), m = MOMENTUM_ACTIONS[key];
+  const momHtml = m ? `<div class="fd-mom" style="--c:${m.bg}">
+      <div class="fd-mom-h">${esc(trMom(f.momentum))}</div>
+      <div class="fd-acts">${m.actions.map(k => { const [n, d] = ACT[k][LANG]; return `<div class="fd-act"><div class="fd-act-n">${n}</div><div class="fd-act-d">${d}</div></div>`; }).join('')}</div>
+      <div class="fd-disc">${t('techOnly')} ${t('askAnalyst')}</div>
+    </div>` : `<div class="fd-none">—</div>`;
+
+  const hols = fundHolidays(f.mutual_fund);
+  const holHtml = hols.length
+    ? `<div class="fd-hols">${hols.slice(0, 8).map(d => `<span class="fd-hol">${fmtHolidayDate(d)}</span>`).join('')}${hols.length > 8 ? `<span class="fd-none">+${hols.length - 8}</span>` : ''}</div>`
+    : `<div class="fd-none">${t('fdNoHol')}</div>`;
+  const inCmp = selectedIds.has(f.id);
+
+  box.innerHTML = `
+    <div class="fd-top">
+      <div style="min-width:0">
+        <div class="fd-code">${esc(f.mutual_fund)}</div>
+        <div class="fd-name">${esc(f.fund_name)}</div>
+        ${badges ? `<div class="fd-badges">${badges}</div>` : ''}
+      </div>
+      <button type="button" class="fd-close" onclick="closeDetail()" aria-label="${escAttr(t('fdClose'))}">${ICO_X}</button>
+    </div>
+    <div class="fd-tags">${fmtType(f.category)}${fmtStyle(f.style)}${f.classification ? `<span class="cls-pill">${esc(trCls(f.classification))}</span>` : ''}${fmtThm(f.thematic)}</div>
+    <div class="fd-nav">
+      <span class="fd-nav-val">${navTxt(f.nav)}</span>
+      <span class="fd-nav-meta">${esc(trNavLbl(f.nav_label))} · ${fmtDate(f.latest_date)}</span>
+    </div>
+    <div class="fd-sec">${t('fdReturns')}</div>
+    ${bars}
+    <div class="fd-sec">${t('thMom')} <span class="hint">${t('techOnly')}</span></div>
+    ${momHtml}
+    <div class="fd-sec">${t('holUpcomingTitle')}</div>
+    ${holHtml}
+    <div class="fd-actions">
+      <button type="button" class="fd-btn${inCmp ? '' : ' primary'}" data-cmp="${escAttr(f.id)}">${inCmp ? t('fdRemove') : t('fdAdd')}</button>
+      <button type="button" class="fd-btn" data-cal="${escAttr(holKeyFor(f.mutual_fund))}">${t('fdOpenCal')}</button>
+    </div>`;
+}
+
+function renderCompareTable() {
+  const list = allFunds.filter(f => selectedIds.has(f.id));
+  const head = `<tr><th>${t('thFund')}</th><th class="n">${t('thNav')}</th>${PERIODS.map(p => `<th class="n">${PER_LBL[p]}</th>`).join('')}<th>${t('thMom')}</th></tr>`;
+  const rows = list.map(f => `<tr data-pick="${escAttr(f.id)}">
+      <td><div class="cmp-code">${esc(f.mutual_fund)}</div><div class="cmp-name">${esc(f.fund_name)}</div></td>
+      <td class="n">${navTxt(f.nav)}</td>
+      ${PERIODS.map(p => `<td class="n">${fmtPct(f[p], false)}</td>`).join('')}
+      <td>${f.momentum ? `<span class="mom-badge ${momCls(f.momentum)}">${esc(trMom(f.momentum))}</span>` : '—'}</td>
+    </tr>`).join('');
+  return `<div class="fd-top"><div class="fd-code" style="font-size:18px">${t('comparing', { n: list.length })}</div>
+      <button type="button" class="fd-close" onclick="closeDetail()" aria-label="${escAttr(t('fdClose'))}">${ICO_X}</button></div>
+    <div class="cmp-wrap"><table class="cmp"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+    <div class="fd-actions"><button type="button" class="fd-btn" onclick="toggleCompareMode()">${t('showAll')}</button></div>`;
+}
+
+function openDetail(id) {
+  if (id) curId = id;
+  document.querySelectorAll('.fl-row').forEach(r => r.classList.toggle('on', r.dataset.id === curId));
+  renderDetail();
+  document.getElementById('fd').scrollTop = 0;
+  if (isMobileView()) document.body.classList.add('fd-open');
+}
+function closeDetail() {
+  document.body.classList.remove('fd-open');
+}
+
+// Jump to one fund from anywhere (summary tiles, Ctrl+K, old featured links)
+function selectFund(id) {
+  if (currentTab !== 'nav') switchTab('nav');
+  if (compareMode && !selectedIds.has(id)) compareMode = false;
+  if (!filtered.some(f => f.id === id)) clearFilters();
+  curId = id;
+  pickedFund = true;
+  render();
+  const row = document.querySelector(`.fl-row[data-id="${CSS.escape(id)}"]`);
+  if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  openDetail(id);
+}
+let pickedFund = false;
+function resetView() {
+  pickedFund = false;
+  curId = null;
+  closeDetail();
+  document.getElementById('filter-drawer').classList.remove('open');
+  document.getElementById('search').blur();
+  clearFilters(); // also re-renders the list and shows the summary tiles again
+  document.getElementById('fd').scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function focusFund(code) {
+  const f = allFunds.find(x => x.mutual_fund === code);
+  if (f) selectFund(f.id);
+}
+
+// ── Ctrl+K quick search ──
+let cmdkIdx = 0, cmdkRes = [];
+function openCmdk() {
+  if (!allFunds.length) return;
+  document.getElementById('cmdk').hidden = false;
+  const inp = document.getElementById('cmdk-input');
+  inp.value = '';
+  cmdkSearch();
+  setTimeout(() => inp.focus(), 0);
+}
+function closeCmdk() { document.getElementById('cmdk').hidden = true; }
+function cmdkSearch() {
+  const q = document.getElementById('cmdk-input').value.toLowerCase().trim();
+  let res;
+  if (!q) {
+    res = allFunds.filter(f => f.recommend || f.monthly).slice(0, 8);
+  } else {
+    res = allFunds.map(f => {
+      const c = (f.mutual_fund || '').toLowerCase(), n = (f.fund_name || '').toLowerCase();
+      const s = c.startsWith(q) ? 3 : c.includes(q) ? 2 : n.includes(q) ? 1 : 0;
+      return { f, s };
+    }).filter(x => x.s).sort((a, b) => b.s - a.s || a.f.mutual_fund.localeCompare(b.f.mutual_fund)).slice(0, 8).map(x => x.f);
+  }
+  cmdkRes = res; cmdkIdx = 0;
+  drawCmdk();
+}
+function drawCmdk() {
+  const box = document.getElementById('cmdk-list');
+  if (!cmdkRes.length) { box.innerHTML = `<div class="cmdk-empty">${t('cmdkNone')}</div>`; return; }
+  box.innerHTML = cmdkRes.map((f, i) => `<div class="cmdk-item${i === cmdkIdx ? ' on' : ''}" data-i="${i}">
+      <div style="min-width:0"><div class="cmdk-code">${esc(f.mutual_fund)}</div><div class="cmdk-name">${esc(f.fund_name)}</div></div>
+      <div class="cmdk-ret ${pctCls(f.pct1m)}">${pctTxt(f.pct1m)} <span class="fl-nav">1M</span></div>
+    </div>`).join('');
+}
+function cmdkPick(i) {
+  const f = cmdkRes[i];
+  if (!f) return;
+  closeCmdk();
+  selectFund(f.id);
+}
+
+(function setupE() {
+  document.getElementById('per-seg').addEventListener('click', e => {
+    const b = e.target.closest('button[data-p]');
+    if (!b) return;
+    listPer = b.dataset.p;
+    try { localStorage.setItem('navPer', listPer); } catch {}
+    const s = document.getElementById('fl-sort').value;
+    if (s === 'high' || s === 'low') sortCol = listPer;
+    render();
+  });
+  document.getElementById('fl-sort').addEventListener('change', e => {
+    const v = e.target.value;
+    if (v === 'default') { sortCol = null; }
+    else if (v === 'high') { sortCol = listPer; sortDir = -1; }
+    else if (v === 'low')  { sortCol = listPer; sortDir = 1; }
+    else if (v === 'code') { sortCol = 'fund'; sortDir = 1; }
+    else if (v === 'mom')  { sortCol = 'momentum'; sortDir = -1; }
+    render();
+    document.getElementById('fl-list').scrollIntoView({ block: 'nearest' });
+  });
+  document.getElementById('fl-list').addEventListener('click', e => {
+    if (e.target.closest('input')) return;
+    const r = e.target.closest('.fl-row');
+    if (r) openDetail(r.dataset.id);
+  });
+  document.getElementById('summary').addEventListener('click', e => {
+    const b = e.target.closest('[data-pick]');
+    if (b) selectFund(b.dataset.pick);
+  });
+  document.getElementById('fd').addEventListener('click', e => {
+    const c = e.target.closest('[data-cmp]');
+    if (c) { const id = c.dataset.cmp; toggleCompare(id, !selectedIds.has(id)); return; }
+    const k = e.target.closest('[data-cal]');
+    if (k) { closeDetail(); switchTab('holiday'); if (FUND_HOLIDAYS[k.dataset.cal]) selectHolFund(k.dataset.cal); return; }
+    const p = e.target.closest('tr[data-pick]');
+    if (p) { compareMode = false; curId = p.dataset.pick; render(); }
+  });
+  const inp = document.getElementById('cmdk-input');
+  inp.addEventListener('input', cmdkSearch);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); cmdkIdx = Math.min(cmdkRes.length - 1, cmdkIdx + 1); drawCmdk(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); cmdkIdx = Math.max(0, cmdkIdx - 1); drawCmdk(); }
+    else if (e.key === 'Enter') { e.preventDefault(); cmdkPick(cmdkIdx); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeCmdk(); }
+  });
+  document.getElementById('cmdk-list').addEventListener('click', e => {
+    const it = e.target.closest('.cmdk-item');
+    if (it) cmdkPick(+it.dataset.i);
+  });
+  document.getElementById('cmdk').addEventListener('click', e => { if (e.target.id === 'cmdk') closeCmdk(); });
+
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      if (document.getElementById('cmdk').hidden) openCmdk(); else closeCmdk();
+      return;
+    }
+    if (!document.getElementById('cmdk').hidden) return;
+    const el = document.activeElement;
+    const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+    if (e.key === 'Escape' && document.body.classList.contains('fd-open')) { closeDetail(); return; }
+    // Up / Down arrows move through the fund list (desktop)
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !typing && currentTab === 'nav' && !compareMode && filtered.length && !isMobileView()) {
+      e.preventDefault();
+      let i = filtered.findIndex(f => f.id === curId);
+      i = e.key === 'ArrowDown' ? Math.min(filtered.length - 1, i + 1) : Math.max(0, i - 1);
+      openDetail(filtered[i].id);
+      const row = document.querySelector(`.fl-row[data-id="${CSS.escape(filtered[i].id)}"]`);
+      if (row) row.scrollIntoView({ block: 'nearest' });
+    }
+  });
+})();
+
+
+applyI18n();
+load();
+if (location.hash === '#holiday') switchTab('holiday');
+
+// ── Sticky table header offset (header + tabs + filterbar height can vary by content/font) ──
+function updateStickyOffset() {
+  const header = document.querySelector('header');
+  const tabbar = document.querySelector('.tabbar');
+  const filterbar = document.querySelector('.filterbar');
+  if (!header || !filterbar) return;
+  if (!filterbar.offsetHeight) return; // NAV tab hidden — keep the last good value
+  document.documentElement.style.setProperty('--sticky-offset', (header.offsetHeight + (tabbar ? tabbar.offsetHeight : 0) + filterbar.offsetHeight) + 'px');
+}
+updateStickyOffset();
+window.addEventListener('resize', updateStickyOffset);
+window.addEventListener('load', updateStickyOffset);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(updateStickyOffset);
+
+// Re-render only when crossing the mobile/desktop breakpoint, so whichever view
+// (table vs cards) just became visible gets populated instead of staying stale.
+let lastIsMobileView = isMobileView();
+window.addEventListener('resize', debounce(() => {
+  const nowMobile = isMobileView();
+  if (nowMobile !== lastIsMobileView) { lastIsMobileView = nowMobile; render(); }
+}, 150));
+</script>
+<script src="nav_data.js"></script>
+</body>
+</html>
